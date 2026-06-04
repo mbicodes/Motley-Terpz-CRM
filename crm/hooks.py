@@ -129,7 +129,8 @@ before_uninstall = "crm.uninstall.before_uninstall"
 # Permissions evaluated in scripted ways
 
 permission_query_conditions = {
-	"CRM Lead": "crm.permissions.org_hierarchy.get_lead_permission_query_conditions",
+	# Motley Terpz: combines org-hierarchy check + Tolling access control
+	"CRM Lead": "crm.motley_terpz.permissions.get_lead_permission_query_conditions",
 	"CRM Deal": "crm.permissions.org_hierarchy.get_deal_permission_query_conditions",
 }
 
@@ -272,6 +273,8 @@ ignore_links_on_delete = ["Failed Lead Sync Log"]
 after_migrate = [
 	"crm.fcrm.doctype.fcrm_settings.fcrm_settings.after_migrate",
 	"crm.api.whatsapp.add_roles",
+	# Motley Terpz & TSBC Ranch — custom fields, lead statuses, pipeline views
+	"crm.motley_terpz.setup.run_setup",
 ]
 
 standard_dropdown_items = [
