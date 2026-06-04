@@ -54,6 +54,13 @@ const routes = [
     name: 'Tasks',
     component: () => import('@/pages/Tasks.vue'),
   },
+  // Motley Terpz — pipeline customer views (between Deals and Contacts)
+  {
+    path: '/customers/:pipeline',
+    name: 'PipelineCustomers',
+    component: () => import('@/pages/PipelineCustomers.vue'),
+    props: true,
+  },
   {
     alias: '/contacts',
     path: '/contacts/view/:viewType?',

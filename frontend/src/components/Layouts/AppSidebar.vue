@@ -240,6 +240,7 @@ const links = [
     icon: ContactsIcon,
     to: 'Contacts',
   },
+  // Customers section is rendered separately via customersSection computed
   {
     label: 'Organizations',
     icon: OrganizationsIcon,
@@ -267,20 +268,46 @@ const links = [
   },
 ]
 
+// ── Motley Terpz — customer pipeline links ───────────────────────────────────
+const customerPipelineLinks = [
+  { label: '❄️ Fresh Frozen',        to: { name: 'PipelineCustomers', params: { pipeline: 'fresh_frozen'      } } },
+  { label: '🌿 Rosin / Solventless', to: { name: 'PipelineCustomers', params: { pipeline: 'rosin_solventless' } } },
+  { label: '🏪 Retail / Distro',     to: { name: 'PipelineCustomers', params: { pipeline: 'retail_distro'     } } },
+  { label: '⚙️ Tolling',             to: { name: 'PipelineCustomers', params: { pipeline: 'tolling'           } } },
+]
+
 const allViews = computed(() => {
+  const allLinks = links.filter((link) => link.condition ? link.condition() : true)
+
+  // Split: before Contacts and from Contacts onward
+  const dealsIdx = allLinks.findIndex((l) => l.label === 'Deals')
+  const contactsIdx = allLinks.findIndex((l) => l.label === 'Contacts')
+
+  const beforeCustomers = allLinks.slice(0, contactsIdx)
+  const afterCustomers  = allLinks.slice(contactsIdx)
+
   let _views = [
     {
       name: 'All Views',
       hideLabel: true,
       opened: true,
-      views: links.filter((link) => {
-        if (link.condition) {
-          return link.condition()
-        }
-        return true
-      }),
+      views: beforeCustomers,
+    },
+    // Customers section (Motley Terpz pipelines) — between Deals and Contacts
+    {
+      name: 'Customers',
+      hideLabel: false,
+      opened: true,
+      views: customerPipelineLinks,
+    },
+    {
+      name: '_after_customers',
+      hideLabel: true,
+      opened: true,
+      views: afterCustomers,
     },
   ]
+
   if (getPublicViews().length) {
     _views.push({
       name: 'Public Views',
