@@ -310,7 +310,7 @@ const allViews = computed(() => {
 
   if (getPublicViews().length) {
     _views.push({
-      name: 'Public Views',
+      name: 'Lead Pipelines',
       opened: true,
       views: parseView(getPublicViews()),
     })
