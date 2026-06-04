@@ -191,19 +191,5 @@ def create_pipeline_views():
             doc.pinned         = 0
             doc.insert(ignore_permissions=True)
 
-    # Customers AR view
-    if not frappe.db.get_value("CRM View Settings", {"label": "Customers", "dt": "CRM Lead"}, "name"):
-        doc = frappe.new_doc("CRM View Settings")
-        doc.label             = "Customers"
-        doc.dt                = "CRM Lead"
-        doc.type              = "list"
-        doc.route_name        = "Leads"
-        doc.user              = ""
-        doc.public            = 1
-        doc.pinned            = 0
-        doc.filters           = json.dumps({"custom_erp_customer": ["!=", ""]})
-        doc.order_by          = "custom_ar_balance desc"
-        doc.load_default_columns = 0
-        doc.columns           = CUSTOMERS_COLUMNS
-        doc.rows              = CUSTOMERS_ROWS
-        doc.insert(ignore_permissions=True)
+    # Customers view lives in the dedicated pipeline pages (PipelineCustomers.vue)
+    # — no CRM View Settings entry needed
