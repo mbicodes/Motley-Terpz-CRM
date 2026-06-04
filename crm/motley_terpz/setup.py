@@ -174,7 +174,7 @@ def create_pipeline_views():
         if existing:
             frappe.db.set_value("CRM View Settings", existing, {
                 "user": "", "kanban_columns": KANBAN_COLUMNS,
-                "public": 1, "pinned": 0,
+                "public": 1, "pinned": 0, "route_name": "Leads",
             })
         else:
             doc = frappe.new_doc("CRM View Settings")
@@ -185,6 +185,7 @@ def create_pipeline_views():
             doc.column_field  = "status"
             doc.user          = ""
             doc.filters       = json.dumps({"custom_pipeline": ["=", p["filter"]]})
+            doc.route_name     = "Leads"
             doc.kanban_columns = KANBAN_COLUMNS
             doc.kanban_fields  = json.dumps([])
             doc.public         = 1
