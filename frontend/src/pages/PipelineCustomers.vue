@@ -37,7 +37,7 @@
         <tbody>
           <tr v-for="row in customers" :key="row.customer"
               class="cursor-pointer border-b transition-colors hover:bg-surface-gray-1"
-              @click="openCustomer(row.customer)">
+              @click="openDashboard(row.customer)">
             <td class="px-3 py-2 font-semibold text-ink-gray-9">{{ row.customer_name || row.customer }}</td>
             <td class="px-3 py-2 font-mono text-xs text-ink-gray-5">{{ row.customer }}</td>
             <td class="px-3 py-2">
@@ -70,7 +70,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { call } from 'frappe-ui'
 import { FeatherIcon, Badge, Button, Spinner } from 'frappe-ui'
 
@@ -117,6 +117,10 @@ function arStatusClass(status) {
   }
 }
 
+const router = useRouter()
+function openDashboard(customerName) {
+  router.push({ name: 'CustomerDashboard', params: { customerId: customerName } })
+}
 function openCustomer(customerName) {
   window.open(`/app/customer/${encodeURIComponent(customerName)}`, '_blank')
 }

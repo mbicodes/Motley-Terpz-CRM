@@ -62,6 +62,12 @@ const routes = [
     props: true,
   },
   {
+    path: '/customer-dashboard/:customerId',
+    name: 'CustomerDashboard',
+    component: () => import('@/pages/CustomerDashboard.vue'),
+    props: true,
+  },
+  {
     alias: '/contacts',
     path: '/contacts/view/:viewType?',
     name: 'Contacts',
