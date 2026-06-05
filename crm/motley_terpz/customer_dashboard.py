@@ -273,3 +273,24 @@ def get_delivery_notes(customer, page=1):
         "total":       total,
         "total_pages": max(1, math.ceil(total / limit)),
     }
+
+
+@frappe.whitelist()
+def get_customer_invoices(customer, page=1):
+    if not frappe.has_permission("Sales Invoice", "read"):
+        frappe.throw("Not permitted", frappe.PermissionError)
+    import math
+    page = int(page or 1); limit = 15; offset = (page - 1) * limit
+    rows = frappe.db.sql("""
+        SELECT name, posting_date, due_date, status,
+               grand_total, outstanding_amount, payment_terms_template
+        FROM `tabSales Invoice`
+        WHERE customer = %(c)s AND docstatus IN (0,1)
+        ORDER BY posting_date DESC, name DESC
+        LIMIT %(l)s OFFSET %(o)s
+    """, {"c": customer, "l": limit, "o": offset}, as_dict=True)
+    total = frappe.db.sql(
+        "SELECT COUNT(*) AS n FROM `tabSales Invoice` WHERE customer=%s AND docstatus IN (0,1)",
+        customer, as_dict=True)[0].n
+    return {"rows": [dict(r) for r in rows], "page": page,
+            "total": total, "total_pages": max(1, math.ceil(total / limit))}

@@ -68,6 +68,12 @@ const routes = [
     props: true,
   },
   {
+    path: '/customer-records/:customerId',
+    name: 'CustomerRecords',
+    component: () => import('@/pages/CustomerRecords.vue'),
+    props: true,
+  },
+  {
     alias: '/contacts',
     path: '/contacts/view/:viewType?',
     name: 'Contacts',
