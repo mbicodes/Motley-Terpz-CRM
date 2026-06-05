@@ -187,6 +187,34 @@
         </div>
       </div>
 
+      <!-- ── Sales Orders ─────────────────────────────────────────────────── -->
+      <div class="cd-card cd-card-full">
+        <div class="cd-card-hdr">
+          <span class="cd-card-title">Sales Orders</span>
+          <div class="cd-pager">
+            <button class="cd-pager-btn" :disabled="soPage<=1" @click="soPage--;loadSO()">&#8249;</button>
+            <span class="cd-pager-info">{{ soPage }} / {{ soTotalPages }}</span>
+            <button class="cd-pager-btn" :disabled="soPage>=soTotalPages" @click="soPage++;loadSO()">&#8250;</button>
+          </div>
+        </div>
+        <div class="cd-invoice-table-wrap">
+          <table class="cd-invoice-table">
+            <thead><tr><th>Order #</th><th>Date</th><th>Delivery Date</th><th>Status</th><th class="cd-num">Total</th><th class="cd-num">Advance</th></tr></thead>
+            <tbody>
+              <tr v-for="row in soRows" :key="row.name" class="cd-inv-row" @click="openDoc('sales-order', row.name)">
+                <td class="cd-inv-id">{{ row.name }}</td>
+                <td>{{ row.transaction_date }}</td>
+                <td>{{ row.delivery_date || '—' }}</td>
+                <td><span class="cd-inv-status" :class="soStatusCls(row.status)">{{ row.status }}</span></td>
+                <td class="cd-num">{{ fmt(row.grand_total) }}</td>
+                <td class="cd-num">{{ row.advance_paid > 0 ? fmt(row.advance_paid) : '—' }}</td>
+              </tr>
+              <tr v-if="!soRows.length"><td colspan="6" class="cd-empty" style="text-align:center;padding:16px;">No sales orders found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ── Recent Invoices ───────────────────────────────────────────────── -->
       <div class="cd-card cd-card-full">
         <div class="cd-card-hdr">
@@ -219,6 +247,33 @@
         </div>
       </div>
 
+      <!-- ── Delivery Notes ────────────────────────────────────────────────── -->
+      <div class="cd-card cd-card-full">
+        <div class="cd-card-hdr">
+          <span class="cd-card-title">Delivery Notes</span>
+          <div class="cd-pager">
+            <button class="cd-pager-btn" :disabled="dnPage<=1" @click="dnPage--;loadDN()">&#8249;</button>
+            <span class="cd-pager-info">{{ dnPage }} / {{ dnTotalPages }}</span>
+            <button class="cd-pager-btn" :disabled="dnPage>=dnTotalPages" @click="dnPage++;loadDN()">&#8250;</button>
+          </div>
+        </div>
+        <div class="cd-invoice-table-wrap">
+          <table class="cd-invoice-table">
+            <thead><tr><th>DN #</th><th>Date</th><th>Status</th><th class="cd-num">Total</th><th>LR No.</th></tr></thead>
+            <tbody>
+              <tr v-for="row in dnRows" :key="row.name" class="cd-inv-row" @click="openDoc('delivery-note', row.name)">
+                <td class="cd-inv-id">{{ row.name }}</td>
+                <td>{{ row.posting_date }}</td>
+                <td><span class="cd-inv-status" :class="dnStatusCls(row.status)">{{ row.status }}</span></td>
+                <td class="cd-num">{{ fmt(row.grand_total) }}</td>
+                <td class="cd-muted">{{ row.lr_no || '—' }}</td>
+              </tr>
+              <tr v-if="!dnRows.length"><td colspan="5" class="cd-empty" style="text-align:center;padding:16px;">No delivery notes found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </template>
   </div>
 </template>
@@ -241,8 +296,54 @@ async function load() {
     })
   } catch(e) { console.error(e) }
   finally { loading.value = false }
+  loadSO()
+  loadDN()
 }
 onMounted(load)
+
+// ── Sales Orders ──────────────────────────────────────────────────────────────
+const soRows       = ref([])
+const soPage       = ref(1)
+const soTotalPages = ref(1)
+async function loadSO() {
+  try {
+    const r = await call('crm.motley_terpz.customer_dashboard.get_sales_orders', {
+      customer: customerId.value, page: soPage.value
+    })
+    soRows.value       = r.rows || []
+    soTotalPages.value = r.total_pages || 1
+  } catch(e) { console.error(e) }
+}
+function soStatusCls(s) {
+  if (!s) return ''
+  if (['Completed','To Bill'].includes(s))         return 'cd-inv-paid'
+  if (['Cancelled','Closed'].includes(s))           return 'cd-inv-unpaid'
+  if (s === 'To Deliver and Bill')                  return 'cd-inv-unpaid'
+  return 'cd-inv-unpaid'
+}
+function openDoc(doctype, name) {
+  window.open(`/app/${doctype}/${encodeURIComponent(name)}`, '_blank')
+}
+
+// ── Delivery Notes ────────────────────────────────────────────────────────────
+const dnRows       = ref([])
+const dnPage       = ref(1)
+const dnTotalPages = ref(1)
+async function loadDN() {
+  try {
+    const r = await call('crm.motley_terpz.customer_dashboard.get_delivery_notes', {
+      customer: customerId.value, page: dnPage.value
+    })
+    dnRows.value       = r.rows || []
+    dnTotalPages.value = r.total_pages || 1
+  } catch(e) { console.error(e) }
+}
+function dnStatusCls(s) {
+  if (!s) return ''
+  if (s === 'Submitted' || s === 'Completed') return 'cd-inv-paid'
+  if (s === 'Cancelled')                      return 'cd-inv-unpaid'
+  return 'cd-inv-unpaid'
+}
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 function fmt(v) {
@@ -421,6 +522,13 @@ function areaPoints(trend) {
 .cd-inv-overdue { background:#fee2e2; color:#991b1b; }
 .cd-inv-unpaid  { background:#fef3c7; color:#92400e; }
 .cd-empty { color:#94a3b8; font-size:12px; padding:12px 0; }
+
+/* Pager */
+.cd-pager { display:flex; align-items:center; gap:6px; }
+.cd-pager-btn { width:26px; height:26px; border-radius:6px; border:1px solid #e2e8f0; background:#fff; cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+.cd-pager-btn:hover:not(:disabled) { background:#f1f5f9; }
+.cd-pager-btn:disabled { opacity:.35; cursor:default; }
+.cd-pager-info { font-size:12px; color:#64748b; min-width:40px; text-align:center; }
 
 /* Responsive */
 @media (max-width: 900px) {
