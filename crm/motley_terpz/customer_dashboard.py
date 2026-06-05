@@ -210,3 +210,66 @@ def get_customer_dashboard(customer):
         "quarterly":           [dict(r) for r in quarters],
         "current_year":        year,
     }
+
+
+# ── Paginated Sales Orders ────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def get_sales_orders(customer, page=1):
+    if not frappe.has_permission("Sales Order", "read"):
+        frappe.throw("Not permitted", frappe.PermissionError)
+    import math
+    page   = int(page or 1)
+    limit  = 15
+    offset = (page - 1) * limit
+
+    rows = frappe.db.sql("""
+        SELECT name, transaction_date, delivery_date, status,
+               grand_total, advance_paid, per_delivered, per_billed
+        FROM `tabSales Order`
+        WHERE customer = %(c)s AND docstatus IN (0, 1)
+        ORDER BY transaction_date DESC, name DESC
+        LIMIT %(l)s OFFSET %(o)s
+    """, {"c": customer, "l": limit, "o": offset}, as_dict=True)
+
+    total = frappe.db.sql(
+        "SELECT COUNT(*) AS n FROM `tabSales Order` WHERE customer=%s AND docstatus IN (0,1)",
+        customer, as_dict=True)[0].n
+
+    return {
+        "rows":        [dict(r) for r in rows],
+        "page":        page,
+        "total":       total,
+        "total_pages": max(1, math.ceil(total / limit)),
+    }
+
+
+# ── Paginated Delivery Notes ──────────────────────────────────────────────────
+
+@frappe.whitelist()
+def get_delivery_notes(customer, page=1):
+    if not frappe.has_permission("Delivery Note", "read"):
+        frappe.throw("Not permitted", frappe.PermissionError)
+    import math
+    page   = int(page or 1)
+    limit  = 15
+    offset = (page - 1) * limit
+
+    rows = frappe.db.sql("""
+        SELECT name, posting_date, status, grand_total, lr_no, lr_date
+        FROM `tabDelivery Note`
+        WHERE customer = %(c)s AND docstatus IN (0, 1)
+        ORDER BY posting_date DESC, name DESC
+        LIMIT %(l)s OFFSET %(o)s
+    """, {"c": customer, "l": limit, "o": offset}, as_dict=True)
+
+    total = frappe.db.sql(
+        "SELECT COUNT(*) AS n FROM `tabDelivery Note` WHERE customer=%s AND docstatus IN (0,1)",
+        customer, as_dict=True)[0].n
+
+    return {
+        "rows":        [dict(r) for r in rows],
+        "page":        page,
+        "total":       total,
+        "total_pages": max(1, math.ceil(total / limit)),
+    }
