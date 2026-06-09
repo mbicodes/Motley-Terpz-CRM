@@ -10,7 +10,7 @@
         <span class="cd-customer-name">{{ d.customer?.customer_name || customerId }}</span>
         <span class="cd-badge" :class="arStatusClass(d.crm?.custom_ar_status)">{{ displayArStatus(d.crm?.custom_ar_status) }}</span>
         <span v-if="d.crm?.custom_relationship_tier" class="cd-badge cd-badge-tier">{{ d.crm.custom_relationship_tier }}</span>
-        <span v-if="d.customer?.is_frozen" class="cd-badge cd-badge-frozen">⛔ Frozen</span>
+        <span v-if="d.customer?.is_frozen && !['Blocked','Frozen'].includes(d.crm?.custom_ar_status)" class="cd-badge cd-badge-frozen">⛔ Frozen</span>
       </div>
       <div class="cd-topbar-meta">
         <span v-if="d.crm?.custom_pipeline">{{ d.crm.custom_pipeline }}</span>
