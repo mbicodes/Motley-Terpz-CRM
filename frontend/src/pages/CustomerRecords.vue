@@ -12,10 +12,13 @@
     <div class="cr-section">
       <div class="cr-sec-hdr">
         <span class="cr-sec-title">Sales Orders</span>
-        <div class="cr-pager">
-          <button class="cr-pbtn" :disabled="so.page<=1" @click="so.page--;loadSO()">&lsaquo;</button>
-          <span class="cr-pinfo">{{ so.page }} / {{ so.totalPages }}</span>
-          <button class="cr-pbtn" :disabled="so.page>=so.totalPages" @click="so.page++;loadSO()">&rsaquo;</button>
+        <div class="cr-hdr-right">
+          <button class="cr-new-btn" @click="createNew('sales-order')">+ New Sales Order</button>
+          <div class="cr-pager">
+            <button class="cr-pbtn" :disabled="so.page<=1" @click="so.page--;loadSO()">&lsaquo;</button>
+            <span class="cr-pinfo">{{ so.page }} / {{ so.totalPages }}</span>
+            <button class="cr-pbtn" :disabled="so.page>=so.totalPages" @click="so.page++;loadSO()">&rsaquo;</button>
+          </div>
         </div>
       </div>
       <div v-if="so.loading" class="cr-loading"><div class="cr-spinner"></div></div>
@@ -39,10 +42,13 @@
     <div class="cr-section">
       <div class="cr-sec-hdr">
         <span class="cr-sec-title">Sales Invoices</span>
-        <div class="cr-pager">
-          <button class="cr-pbtn" :disabled="inv.page<=1" @click="inv.page--;loadInv()">&lsaquo;</button>
-          <span class="cr-pinfo">{{ inv.page }} / {{ inv.totalPages }}</span>
-          <button class="cr-pbtn" :disabled="inv.page>=inv.totalPages" @click="inv.page++;loadInv()">&rsaquo;</button>
+        <div class="cr-hdr-right">
+          <button class="cr-new-btn" @click="createNew('sales-invoice')">+ New Sales Invoice</button>
+          <div class="cr-pager">
+            <button class="cr-pbtn" :disabled="inv.page<=1" @click="inv.page--;loadInv()">&lsaquo;</button>
+            <span class="cr-pinfo">{{ inv.page }} / {{ inv.totalPages }}</span>
+            <button class="cr-pbtn" :disabled="inv.page>=inv.totalPages" @click="inv.page++;loadInv()">&rsaquo;</button>
+          </div>
         </div>
       </div>
       <div v-if="inv.loading" class="cr-loading"><div class="cr-spinner"></div></div>
@@ -69,10 +75,13 @@
     <div class="cr-section">
       <div class="cr-sec-hdr">
         <span class="cr-sec-title">Delivery Notes</span>
-        <div class="cr-pager">
-          <button class="cr-pbtn" :disabled="dn.page<=1" @click="dn.page--;loadDN()">&lsaquo;</button>
-          <span class="cr-pinfo">{{ dn.page }} / {{ dn.totalPages }}</span>
-          <button class="cr-pbtn" :disabled="dn.page>=dn.totalPages" @click="dn.page++;loadDN()">&rsaquo;</button>
+        <div class="cr-hdr-right">
+          <button class="cr-new-btn" @click="createNew('delivery-note')">+ New Delivery Note</button>
+          <div class="cr-pager">
+            <button class="cr-pbtn" :disabled="dn.page<=1" @click="dn.page--;loadDN()">&lsaquo;</button>
+            <span class="cr-pinfo">{{ dn.page }} / {{ dn.totalPages }}</span>
+            <button class="cr-pbtn" :disabled="dn.page>=dn.totalPages" @click="dn.page++;loadDN()">&rsaquo;</button>
+          </div>
         </div>
       </div>
       <div v-if="dn.loading" class="cr-loading"><div class="cr-spinner"></div></div>
@@ -108,6 +117,9 @@ const dn  = reactive({ rows:[], page:1, totalPages:1, loading:false })
 function fmt(v) { return '$ ' + parseFloat(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) }
 function isPast(dt) { return dt && new Date(dt) < new Date() }
 function open(type, name) { window.open(`/app/${type}/${encodeURIComponent(name)}`, '_blank') }
+function createNew(doctype) {
+  window.open(`/app/${doctype}/new-${doctype}-1?customer=${encodeURIComponent(customerId.value)}`, '_blank')
+}
 
 const PAID  = ['Completed','Paid','Submitted']
 const BAD   = ['Cancelled','Overdue','Return Issued']
@@ -158,6 +170,9 @@ onMounted(() => { loadSO(); loadInv(); loadDN() })
 .cr-section { background:#fff; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,.05); overflow:hidden; }
 .cr-sec-hdr { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #f1f5f9; }
 .cr-sec-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#0f172a; }
+.cr-hdr-right { display:flex; align-items:center; gap:10px; }
+.cr-new-btn { display:flex; align-items:center; gap:4px; padding:5px 12px; border-radius:6px; border:1px solid #6366f1; background:#6366f1; color:#fff; font-size:11px; font-weight:600; cursor:pointer; transition:background .15s; white-space:nowrap; }
+.cr-new-btn:hover { background:#4f46e5; border-color:#4f46e5; }
 .cr-pager { display:flex; align-items:center; gap:6px; }
 .cr-pbtn { width:28px; height:28px; border-radius:6px; border:1px solid #e2e8f0; background:#fff; cursor:pointer; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; transition:background .15s; }
 .cr-pbtn:hover:not(:disabled) { background:#f1f5f9; }
