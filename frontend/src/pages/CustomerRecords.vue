@@ -23,7 +23,8 @@
       </div>
       <div v-if="so.loading" class="cr-loading"><div class="cr-spinner"></div></div>
       <table v-else class="cr-table">
-        <thead><tr><th>Order #</th><th>Date</th><th>Delivery Date</th><th>Status</th><th>Total</th><th>Advance Paid</th></tr></thead>
+        <colgroup><col class="cr-col-id"><col class="cr-col-date"><col class="cr-col-date"><col class="cr-col-status"><col class="cr-col-num"><col class="cr-col-num"></colgroup>
+        <thead><tr><th>Order #</th><th>Date</th><th>Delivery Date</th><th>Status</th><th class="cr-th-r">Total</th><th class="cr-th-r">Advance Paid</th></tr></thead>
         <tbody>
           <tr v-for="r in so.rows" :key="r.name" class="cr-row" @click="open('sales-order', r.name)">
             <td class="cr-id">{{ r.name }}</td>
@@ -53,7 +54,8 @@
       </div>
       <div v-if="inv.loading" class="cr-loading"><div class="cr-spinner"></div></div>
       <table v-else class="cr-table">
-        <thead><tr><th>Invoice #</th><th>Date</th><th>Due Date</th><th>Status</th><th>Amount</th><th>Outstanding</th><th>Terms</th></tr></thead>
+        <colgroup><col class="cr-col-id"><col class="cr-col-date"><col class="cr-col-date"><col class="cr-col-status"><col class="cr-col-num"><col class="cr-col-num"><col class="cr-col-terms"></colgroup>
+        <thead><tr><th>Invoice #</th><th>Date</th><th>Due Date</th><th>Status</th><th class="cr-th-r">Amount</th><th class="cr-th-r">Outstanding</th><th class="cr-th-r">Terms</th></tr></thead>
         <tbody>
           <tr v-for="r in inv.rows" :key="r.name" class="cr-row" @click="open('sales-invoice', r.name)">
             <td class="cr-id">{{ r.name }}</td>
@@ -64,7 +66,7 @@
             <td class="cr-num" :class="r.outstanding_amount > 0 ? 'cr-red' : 'cr-green'">
               {{ r.outstanding_amount > 0 ? fmt(r.outstanding_amount) : '✓ Paid' }}
             </td>
-            <td class="cr-muted">{{ r.payment_terms_template || '—' }}</td>
+            <td class="cr-num cr-muted">{{ r.payment_terms_template || '—' }}</td>
           </tr>
           <tr v-if="!inv.rows.length"><td colspan="7" class="cr-empty">No invoices found.</td></tr>
         </tbody>
@@ -86,7 +88,8 @@
       </div>
       <div v-if="dn.loading" class="cr-loading"><div class="cr-spinner"></div></div>
       <table v-else class="cr-table">
-        <thead><tr><th>DN #</th><th>Date</th><th>Status</th><th>Total</th><th>LR No.</th></tr></thead>
+        <colgroup><col class="cr-col-id"><col class="cr-col-date"><col class="cr-col-status"><col class="cr-col-num"><col></colgroup>
+        <thead><tr><th>DN #</th><th>Date</th><th>Status</th><th class="cr-th-r">Total</th><th>LR No.</th></tr></thead>
         <tbody>
           <tr v-for="r in dn.rows" :key="r.name" class="cr-row" @click="open('delivery-note', r.name)">
             <td class="cr-id">{{ r.name }}</td>
@@ -178,11 +181,17 @@ onMounted(() => { loadSO(); loadInv(); loadDN() })
 .cr-pbtn:hover:not(:disabled) { background:#f1f5f9; }
 .cr-pbtn:disabled { opacity:.3; cursor:default; }
 .cr-pinfo { font-size:12px; color:#64748b; min-width:44px; text-align:center; }
-.cr-table { width:100%; border-collapse:collapse; font-size:12px; }
-.cr-table th { padding:8px 14px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#64748b; background:#f8fafc; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
+.cr-table { width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; }
+.cr-table th { padding:8px 14px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#64748b; background:#f8fafc; border-bottom:1px solid #e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cr-th-r { text-align:right !important; }
+.cr-col-id     { width:22%; }
+.cr-col-date   { width:11%; }
+.cr-col-status { width:16%; }
+.cr-col-num    { width:15%; }
+.cr-col-terms  { width:15%; }
 .cr-row { cursor:pointer; border-bottom:1px solid #f8fafc; transition:background .12s; }
 .cr-row:hover { background:#f8fafc; }
-.cr-table td { padding:9px 14px; white-space:nowrap; }
+.cr-table td { padding:9px 14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cr-id { font-family:monospace; font-size:11px; color:#64748b; }
 .cr-num { text-align:right; font-weight:600; }
 .cr-muted { color:#94a3b8; }
