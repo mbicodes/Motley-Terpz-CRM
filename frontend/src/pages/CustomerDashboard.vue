@@ -8,7 +8,7 @@
       </button>
       <div class="cd-topbar-title">
         <span class="cd-customer-name">{{ d.customer?.customer_name || customerId }}</span>
-        <span class="cd-badge" :class="arStatusClass(d.crm?.custom_ar_status)">{{ d.crm?.custom_ar_status || '—' }}</span>
+        <span class="cd-badge" :class="arStatusClass(d.crm?.custom_ar_status)">{{ displayArStatus(d.crm?.custom_ar_status) }}</span>
         <span v-if="d.crm?.custom_relationship_tier" class="cd-badge cd-badge-tier">{{ d.crm.custom_relationship_tier }}</span>
         <span v-if="d.customer?.is_frozen" class="cd-badge cd-badge-frozen">⛔ Frozen</span>
       </div>
@@ -129,7 +129,7 @@
             </div>
           </div>
           <div class="cd-aging-note">
-            <span :class="d.crm?.custom_ar_status === 'Blocked' ? 'cd-red' : d.crm?.custom_ar_status === 'Overdue' ? 'cd-amber' : 'cd-green'">
+            <span :class="['Blocked','Frozen'].includes(d.crm?.custom_ar_status) ? 'cd-red' : d.crm?.custom_ar_status === 'Overdue' ? 'cd-amber' : 'cd-green'">
               {{ d.crm?.custom_ar_aging_days || 0 }} days since oldest unpaid invoice
             </span>
           </div>
@@ -197,8 +197,13 @@
           <table class="cd-invoice-table">
             <thead>
               <tr>
-                <th>Invoice</th><th>Date</th><th>Amount</th>
-                <th>Outstanding</th><th>Due Date</th><th>Terms</th><th>Status</th>
+                <th class="cd-th-inv">Invoice</th>
+                <th class="cd-th-date">Date</th>
+                <th class="cd-th-num">Amount</th>
+                <th class="cd-th-num">Outstanding</th>
+                <th class="cd-th-date">Due Date</th>
+                <th class="cd-th-date">Terms</th>
+                <th class="cd-th-status">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -271,9 +276,15 @@ function openERP() { window.open(`/app/customer/${encodeURIComponent(customerId.
 function openInvoice(name) { window.open(`/app/sales-invoice/${encodeURIComponent(name)}`, '_blank') }
 function isDuePast(dt) { return dt && new Date(dt) < new Date() }
 
+function displayArStatus(s) {
+  if (s === 'Blocked') return 'Frozen'
+  return s || '—'
+}
 function arStatusClass(s) {
-  return { 'cd-badge-blocked': s==='Blocked', 'cd-badge-overdue': s==='Overdue',
-           'cd-badge-watch': s==='Watch', 'cd-badge-clean': s==='Clean' }
+  return { 'cd-badge-frozen': s==='Blocked' || s==='Frozen',
+           'cd-badge-overdue': s==='Overdue',
+           'cd-badge-watch': s==='Watch',
+           'cd-badge-clean': s==='Clean' }
 }
 function invStatusCls(inv) {
   if (inv.outstanding_amount <= 0) return 'cd-inv-paid'
@@ -338,12 +349,11 @@ function areaPoints(trend) {
 
 /* Badges */
 .cd-badge { padding:2px 10px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
-.cd-badge-blocked { background:#fee2e2; color:#991b1b; }
+.cd-badge-frozen  { background:#fecaca; color:#b91c1c; }
 .cd-badge-overdue { background:#fef3c7; color:#92400e; }
 .cd-badge-watch   { background:#dbeafe; color:#1d4ed8; }
 .cd-badge-clean   { background:#d1fae5; color:#065f46; }
 .cd-badge-tier    { background:#ede9fe; color:#6d28d9; }
-.cd-badge-frozen  { background:#fecaca; color:#b91c1c; }
 
 /* Loading */
 .cd-loading { display:flex; justify-content:center; padding:80px; }
@@ -417,13 +427,17 @@ function areaPoints(trend) {
 
 /* Invoice table */
 .cd-invoice-table-wrap { overflow-x:auto; }
-.cd-invoice-table { width:100%; border-collapse:collapse; font-size:12px; }
+.cd-invoice-table { width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; }
 .cd-invoice-table th { padding:8px 12px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#64748b; background:#f8fafc; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
 .cd-inv-row { cursor:pointer; border-bottom:1px solid #f8fafc; transition:background .15s; }
 .cd-inv-row:hover { background:#f8fafc; }
-.cd-invoice-table td { padding:8px 12px; color:#0f172a; white-space:nowrap; }
+.cd-invoice-table td { padding:8px 12px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cd-inv-id { font-family:monospace; font-size:11px; color:#64748b; }
-.cd-num { text-align:right; font-weight:600; }
+.cd-num    { text-align:right; font-weight:600; }
+.cd-th-inv    { width:22%; }
+.cd-th-date   { width:12%; }
+.cd-th-num    { width:14%; text-align:right !important; }
+.cd-th-status { width:10%; }
 .cd-inv-status { padding:2px 8px; border-radius:8px; font-size:10px; font-weight:700; }
 .cd-inv-paid    { background:#d1fae5; color:#065f46; }
 .cd-inv-overdue { background:#fee2e2; color:#991b1b; }
