@@ -142,7 +142,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.hs-root { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f1f5f9; min-height:100%; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.hs-root { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f1f5f9; height:100%; overflow-y:auto; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
 .hs-topbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; background:#1e293b; border-radius:12px; padding:14px 20px; }
 .hs-title { font-size:16px; font-weight:800; color:#fff; }
 .hs-topbar-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -170,7 +170,7 @@ onMounted(async () => {
 .hs-search:focus { border-color:#6366f1; }
 
 /* List */
-.hs-list { background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; }
+.hs-list { background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:visible; }
 .hs-item { display:flex; align-items:center; gap:14px; padding:12px 16px; border-bottom:1px solid #f8fafc; cursor:pointer; transition:background .1s; }
 .hs-item:hover { background:#f8fafc; }
 .hs-item-name { flex:0 0 220px; font-size:13px; font-weight:600; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
