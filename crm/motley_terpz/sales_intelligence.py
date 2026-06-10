@@ -36,10 +36,12 @@ def get_companies():
 
 def _sum_invoices(company, from_date, to_date):
     result = frappe.db.sql("""
-        SELECT COALESCE(SUM(grand_total), 0) AS total
-        FROM `tabSales Invoice`
-        WHERE docstatus=1 AND company=%(company)s
-          AND posting_date BETWEEN %(from_date)s AND %(to_date)s
+        SELECT COALESCE(SUM(si.grand_total), 0) AS total
+        FROM `tabSales Invoice` si
+        JOIN `tabCustomer` c ON c.name = si.customer
+        WHERE si.docstatus=1 AND si.company=%(company)s
+          AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
+          AND c.is_internal_customer = 0
     """, {"company": company, "from_date": from_date, "to_date": to_date}, as_dict=True)
     return flt(result[0].total) if result else 0.0
 
@@ -52,9 +54,12 @@ def _pct_change(old_val, new_val):
 
 def _ar_aging_summary(company, today):
     rows = frappe.db.sql("""
-        SELECT due_date, outstanding_amount
-        FROM `tabSales Invoice`
-        WHERE docstatus=1 AND company=%(company)s AND outstanding_amount > 0
+        SELECT si.due_date, si.outstanding_amount
+        FROM `tabSales Invoice` si
+        JOIN `tabCustomer` c ON c.name = si.customer
+        WHERE si.docstatus=1 AND si.company=%(company)s
+          AND si.outstanding_amount > 0
+          AND c.is_internal_customer = 0
     """, {"company": company}, as_dict=True)
 
     buckets = {"current": 0.0, "1_30": 0.0, "31_60": 0.0, "61_90": 0.0, "90_plus": 0.0}
@@ -93,13 +98,15 @@ def get_command_center(company=None):
     rev_last = _sum_invoices(company, last_week_start, last_week_end)
 
     top_customers = frappe.db.sql("""
-        SELECT customer, customer_name,
-               SUM(grand_total) AS revenue,
+        SELECT si.customer, si.customer_name,
+               SUM(si.grand_total) AS revenue,
                COUNT(*) AS inv_count
-        FROM `tabSales Invoice`
-        WHERE docstatus=1 AND company=%(c)s
-          AND posting_date >= %(d)s
-        GROUP BY customer
+        FROM `tabSales Invoice` si
+        JOIN `tabCustomer` c ON c.name = si.customer
+        WHERE si.docstatus=1 AND si.company=%(c)s
+          AND si.posting_date >= %(d)s
+          AND c.is_internal_customer = 0
+        GROUP BY si.customer
         ORDER BY revenue DESC
         LIMIT 5
     """, {"c": company, "d": thirty_ago}, as_dict=True)
@@ -115,10 +122,13 @@ def get_command_center(company=None):
     """, {"c": company}, as_dict=True)
 
     recent_invoices = frappe.db.sql("""
-        SELECT name, customer_name, grand_total, outstanding_amount, posting_date, status
-        FROM `tabSales Invoice`
-        WHERE docstatus=1 AND company=%(c)s
-        ORDER BY posting_date DESC, creation DESC
+        SELECT si.name, si.customer_name, si.grand_total, si.outstanding_amount,
+               si.posting_date, si.status
+        FROM `tabSales Invoice` si
+        JOIN `tabCustomer` c ON c.name = si.customer
+        WHERE si.docstatus=1 AND si.company=%(c)s
+          AND c.is_internal_customer = 0
+        ORDER BY si.posting_date DESC, si.creation DESC
         LIMIT 10
     """, {"c": company}, as_dict=True)
 
@@ -162,8 +172,10 @@ def get_cash_projection(company=None):
                ps.due_date, ps.outstanding AS amount
         FROM `tabPayment Schedule` ps
         JOIN `tabSales Invoice` si ON si.name = ps.parent
+        JOIN `tabCustomer` c ON c.name = si.customer
         WHERE ps.parenttype='Sales Invoice' AND ps.outstanding > 0
-          AND si.docstatus=1 AND si.outstanding_amount > 0 {ci}
+          AND si.docstatus=1 AND si.outstanding_amount > 0
+          AND c.is_internal_customer = 0 {ci}
         ORDER BY ps.due_date
     """, p, as_dict=True)
 
@@ -174,7 +186,9 @@ def get_cash_projection(company=None):
                si.outstanding_amount, si.status,
                si.due_date, si.outstanding_amount AS amount
         FROM `tabSales Invoice` si
-        WHERE si.docstatus=1 AND si.outstanding_amount > 0 {ci}
+        JOIN `tabCustomer` c ON c.name = si.customer
+        WHERE si.docstatus=1 AND si.outstanding_amount > 0
+          AND c.is_internal_customer = 0 {ci}
           AND NOT EXISTS (
               SELECT 1 FROM `tabPayment Schedule` ps2
               WHERE ps2.parent=si.name AND ps2.parenttype='Sales Invoice'
@@ -191,9 +205,11 @@ def get_cash_projection(company=None):
                ps.due_date, ps.outstanding AS amount
         FROM `tabPayment Schedule` ps
         JOIN `tabSales Order` so ON so.name = ps.parent
+        JOIN `tabCustomer` c ON c.name = so.customer
         WHERE ps.parenttype='Sales Order' AND ps.outstanding > 0
           AND so.docstatus=1
-          AND so.status IN ('To Deliver and Bill','To Bill','To Deliver') {cs}
+          AND so.status IN ('To Deliver and Bill','To Bill','To Deliver')
+          AND c.is_internal_customer = 0 {cs}
         ORDER BY ps.due_date
     """, p, as_dict=True)
 
@@ -205,8 +221,10 @@ def get_cash_projection(company=None):
                COALESCE(so.delivery_date, so.transaction_date) AS due_date,
                (so.grand_total - so.advance_paid) AS amount
         FROM `tabSales Order` so
+        JOIN `tabCustomer` c ON c.name = so.customer
         WHERE so.docstatus=1
-          AND so.status IN ('To Deliver and Bill','To Bill','To Deliver') {cs}
+          AND so.status IN ('To Deliver and Bill','To Bill','To Deliver')
+          AND c.is_internal_customer = 0 {cs}
           AND NOT EXISTS (
               SELECT 1 FROM `tabPayment Schedule` ps2
               WHERE ps2.parent=so.name AND ps2.parenttype='Sales Order'
@@ -348,6 +366,7 @@ def get_customer_health_scores(company=None):
         JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus=1 AND si.company=%(c)s
           AND si.posting_date >= %(cutoff)s
+          AND c.is_internal_customer = 0
         ORDER BY c.customer_name
     """, {"c": company, "cutoff": today - timedelta(days=365)}, as_dict=True)
 
@@ -443,8 +462,10 @@ def get_sales_projection(company=None):
                     SELECT COALESCE(SUM(soi.amount), 0) AS total
                     FROM `tabSales Order Item` soi
                     JOIN `tabSales Order` so ON so.name = soi.parent
+                    JOIN `tabCustomer` c ON c.name = so.customer
                     WHERE so.docstatus=1 AND so.company=%s
                       AND so.transaction_date BETWEEN %s AND %s
+                      AND c.is_internal_customer = 0
                       AND soi.item_group IN ({placeholders})
                 """, tuple([company, str(week["start"]), str(week["end"])] + groups))
             else:
@@ -453,9 +474,11 @@ def get_sales_projection(company=None):
                     SELECT COALESCE(SUM(soi.amount), 0) AS total
                     FROM `tabSales Order Item` soi
                     JOIN `tabSales Order` so ON so.name = soi.parent
+                    JOIN `tabCustomer` c ON c.name = so.customer
                     WHERE so.docstatus=1 AND so.company=%s
                       AND so.status IN ('To Deliver and Bill','To Bill','To Deliver')
                       AND COALESCE(so.delivery_date, so.transaction_date) BETWEEN %s AND %s
+                      AND c.is_internal_customer = 0
                       AND soi.item_group IN ({placeholders})
                 """, tuple([company, str(week["start"]), str(week["end"])] + groups))
             row["lines"][line_name] = flt(val[0][0]) if val else 0.0
@@ -494,6 +517,10 @@ def get_ar_aging_heatmap(company=None):
 
     _columns, data = execute(filters)
 
+    internal_customers = set(frappe.db.sql_list(
+        "SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1"
+    ))
+
     BUCKET_KEYS = ["range1", "range2", "range3", "range4", "range5"]
     grid = []
     col_totals = {k: 0.0 for k in BUCKET_KEYS}
@@ -506,6 +533,9 @@ def get_ar_aging_heatmap(company=None):
             continue
         # Only customers
         if row.get("party_type") and row.get("party_type") != "Customer":
+            continue
+        # Skip internal customers
+        if row.get("party") in internal_customers:
             continue
 
         outstanding = flt(row.get("outstanding", 0))
