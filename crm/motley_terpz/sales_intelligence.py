@@ -145,83 +145,101 @@ def get_command_center(company=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 02 — Weekly Cash Projection (all companies)
+# 02 — Weekly Cash Projection (all companies, payment-terms aware)
 # ─────────────────────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_cash_projection(company=None):
     today = getdate(nowdate())
+    p = {"c": company} if company else {}
+    ci = "AND si.company=%(c)s" if company else ""
+    cs = "AND so.company=%(c)s" if company else ""
 
-    # Build WHERE clause — all companies if none specified
-    if company:
-        inv_where = "docstatus=1 AND company=%(c)s AND outstanding_amount > 0"
-        so_where  = "docstatus=1 AND company=%(c)s AND status IN ('To Deliver and Bill','To Bill','To Deliver')"
-        params = {"c": company}
-    else:
-        inv_where = "docstatus=1 AND outstanding_amount > 0"
-        so_where  = "docstatus=1 AND status IN ('To Deliver and Bill','To Bill','To Deliver')"
-        params = {}
+    # 1. Invoice milestones from Payment Schedule (terms-aware)
+    inv_sched = frappe.db.sql(f"""
+        SELECT 'invoice' AS type,
+               si.name, si.company, si.customer_name, si.grand_total,
+               si.outstanding_amount, si.status,
+               ps.due_date, ps.outstanding AS amount
+        FROM `tabPayment Schedule` ps
+        JOIN `tabSales Invoice` si ON si.name = ps.parent
+        WHERE ps.parenttype='Sales Invoice' AND ps.outstanding > 0
+          AND si.docstatus=1 AND si.outstanding_amount > 0 {ci}
+        ORDER BY ps.due_date
+    """, p, as_dict=True)
 
-    # Open invoices
-    invoices = frappe.db.sql(f"""
-        SELECT name, company, customer_name, grand_total, outstanding_amount,
-               due_date, status
-        FROM `tabSales Invoice`
-        WHERE {inv_where}
-        ORDER BY due_date ASC
-    """, params, as_dict=True)
+    # 2. Invoices with no Payment Schedule (fallback to due_date / outstanding_amount)
+    inv_no_sched = frappe.db.sql(f"""
+        SELECT 'invoice' AS type,
+               si.name, si.company, si.customer_name, si.grand_total,
+               si.outstanding_amount, si.status,
+               si.due_date, si.outstanding_amount AS amount
+        FROM `tabSales Invoice` si
+        WHERE si.docstatus=1 AND si.outstanding_amount > 0 {ci}
+          AND NOT EXISTS (
+              SELECT 1 FROM `tabPayment Schedule` ps2
+              WHERE ps2.parent=si.name AND ps2.parenttype='Sales Invoice'
+                AND ps2.outstanding > 0
+          )
+        ORDER BY si.due_date
+    """, p, as_dict=True)
 
-    # Open SOs (projected billing)
-    sales_orders = frappe.db.sql(f"""
-        SELECT name, company, customer_name, grand_total,
-               COALESCE(delivery_date, transaction_date) AS due_date,
-               status
-        FROM `tabSales Order`
-        WHERE {so_where}
-        ORDER BY delivery_date ASC
-    """, params, as_dict=True)
+    # 3. SO milestones from Payment Schedule (terms-aware)
+    so_sched = frappe.db.sql(f"""
+        SELECT 'sales_order' AS type,
+               so.name, so.company, so.customer_name, so.grand_total,
+               (so.grand_total - so.advance_paid) AS outstanding_amount, so.status,
+               ps.due_date, ps.outstanding AS amount
+        FROM `tabPayment Schedule` ps
+        JOIN `tabSales Order` so ON so.name = ps.parent
+        WHERE ps.parenttype='Sales Order' AND ps.outstanding > 0
+          AND so.docstatus=1
+          AND so.status IN ('To Deliver and Bill','To Bill','To Deliver') {cs}
+        ORDER BY ps.due_date
+    """, p, as_dict=True)
 
-    def bucket(due_date_val):
-        if not due_date_val:
+    # 4. SOs with no Payment Schedule (fallback to delivery_date / unbilled amount)
+    so_no_sched = frappe.db.sql(f"""
+        SELECT 'sales_order' AS type,
+               so.name, so.company, so.customer_name, so.grand_total,
+               (so.grand_total - so.advance_paid) AS outstanding_amount, so.status,
+               COALESCE(so.delivery_date, so.transaction_date) AS due_date,
+               (so.grand_total - so.advance_paid) AS amount
+        FROM `tabSales Order` so
+        WHERE so.docstatus=1
+          AND so.status IN ('To Deliver and Bill','To Bill','To Deliver') {cs}
+          AND NOT EXISTS (
+              SELECT 1 FROM `tabPayment Schedule` ps2
+              WHERE ps2.parent=so.name AND ps2.parenttype='Sales Order'
+                AND ps2.outstanding > 0
+          )
+        ORDER BY due_date
+    """, p, as_dict=True)
+
+    def bucket(d):
+        if not d:
             return "week1"
-        d = getdate(due_date_val)
-        diff = (d - today).days
-        if diff < 0:
-            return "overdue"
-        elif diff <= 6:
-            return "week1"
-        elif diff <= 13:
-            return "week2"
-        elif diff <= 20:
-            return "week3"
-        else:
-            return "week4plus"
+        diff = (getdate(d) - today).days
+        if diff < 0:     return "overdue"
+        elif diff <= 6:  return "week1"
+        elif diff <= 13: return "week2"
+        elif diff <= 20: return "week3"
+        else:            return "week4plus"
 
     result = {"overdue": [], "week1": [], "week2": [], "week3": [], "week4plus": []}
 
-    for inv in invoices:
-        b = bucket(inv.due_date)
-        result[b].append({
-            "type": "invoice",
-            "name": inv.name,
-            "company": inv.company,
-            "customer": inv.customer_name,
-            "amount": flt(inv.outstanding_amount),
-            "total": flt(inv.grand_total),
-            "due_date": str(inv.due_date) if inv.due_date else "",
-            "status": inv.status,
-        })
-
-    for so in sales_orders:
-        b = bucket(so.due_date)
-        result[b].append({
-            "type": "sales_order",
-            "name": so.name,
-            "company": so.company,
-            "customer": so.customer_name,
-            "amount": flt(so.grand_total),
-            "total": flt(so.grand_total),
-            "due_date": str(so.due_date) if so.due_date else "",
-            "status": so.status,
+    for row in list(inv_sched) + list(inv_no_sched) + list(so_sched) + list(so_no_sched):
+        amt = flt(row.get("amount", 0))
+        if amt <= 0:
+            continue
+        result[bucket(row.get("due_date"))].append({
+            "type":     row.get("type"),
+            "name":     row.get("name"),
+            "company":  row.get("company"),
+            "customer": row.get("customer_name"),
+            "amount":   amt,
+            "total":    flt(row.get("grand_total", 0)),
+            "due_date": str(row.get("due_date")) if row.get("due_date") else "",
+            "status":   row.get("status"),
         })
 
     totals = {k: sum(r["amount"] for r in v) for k, v in result.items()}
