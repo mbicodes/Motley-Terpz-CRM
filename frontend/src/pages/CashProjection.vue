@@ -23,8 +23,17 @@
       <!-- Week tables -->
       <div v-for="col in COLS" :key="col.key" class="cp-section">
         <div class="cp-sec-hdr" :class="`cp-hdr-${col.color}`">
-          <span>{{ col.label }}</span>
-          <span class="cp-sec-total">{{ fmt(d.totals?.[col.key]) }}</span>
+          <span>{{ col.label }}
+            <span class="cp-sec-count">{{ (d.rows?.[col.key] || []).length }} items</span>
+          </span>
+          <div class="cp-sec-right">
+            <span class="cp-sec-total">{{ fmt(d.totals?.[col.key]) }}</span>
+            <div class="cp-pager" v-if="(d.rows?.[col.key] || []).length > PAGE_SIZE">
+              <button class="cp-pbtn" :disabled="pages[col.key] <= 1" @click="pages[col.key]--">&lsaquo;</button>
+              <span class="cp-pinfo">{{ pages[col.key] }} / {{ totalPages(col.key) }}</span>
+              <button class="cp-pbtn" :disabled="pages[col.key] >= totalPages(col.key)" @click="pages[col.key]++">&rsaquo;</button>
+            </div>
+          </div>
         </div>
         <table class="cp-table">
           <thead>
@@ -40,7 +49,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="r in (d.rows?.[col.key] || [])" :key="r.name"
+            <tr v-for="r in pagedRows(col.key)" :key="r.name"
                 class="cp-row" :class="`cp-row-${col.color}`"
                 @click="openDoc(r)">
               <td class="cp-mono">{{ r.name }}</td>
@@ -57,7 +66,7 @@
               <td><span class="cp-status" :class="statusCls(r.status)">{{ r.status }}</span></td>
             </tr>
             <tr v-if="!(d.rows?.[col.key] || []).length">
-              <td colspan="7" class="cp-empty">Nothing due {{ col.label.toLowerCase() }}</td>
+              <td colspan="8" class="cp-empty">Nothing due {{ col.label.toLowerCase() }}</td>
             </tr>
           </tbody>
         </table>
@@ -68,11 +77,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { call } from 'frappe-ui'
 
 const loading = ref(true)
 const d = ref({})
+
+const PAGE_SIZE = 6
 
 const COLS = [
   { key: 'overdue',  label: 'Overdue',    color: 'red'   },
@@ -81,6 +92,19 @@ const COLS = [
   { key: 'week3',    label: 'Week 3',     color: 'green' },
   { key: 'week4plus',label: 'Week 4+',    color: 'gray'  },
 ]
+
+const pages = reactive({ overdue: 1, week1: 1, week2: 1, week3: 1, week4plus: 1 })
+
+function totalPages(key) {
+  const rows = d.value.rows?.[key] || []
+  return Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+}
+
+function pagedRows(key) {
+  const rows = d.value.rows?.[key] || []
+  const start = (pages[key] - 1) * PAGE_SIZE
+  return rows.slice(start, start + PAGE_SIZE)
+}
 
 // Map full company names to short labels
 const COMPANY_ABBR = {
@@ -98,8 +122,8 @@ function companyAbbr(name) {
 async function load() {
   loading.value = true
   try {
-    // No company filter — returns all companies
     d.value = await call('crm.motley_terpz.sales_intelligence.get_cash_projection')
+    Object.keys(pages).forEach(k => pages[k] = 1)
   } finally {
     loading.value = false
   }
@@ -146,7 +170,14 @@ onMounted(load)
 /* Section */
 .cp-section { background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; }
 .cp-sec-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; border-bottom:1px solid #e2e8f0; }
+.cp-sec-count { margin-left:8px; font-size:10px; font-weight:600; opacity:.6; text-transform:none; letter-spacing:0; }
+.cp-sec-right { display:flex; align-items:center; gap:12px; }
 .cp-sec-total { font-size:14px; }
+.cp-pager { display:flex; align-items:center; gap:4px; }
+.cp-pbtn { width:24px; height:24px; border-radius:4px; border:1px solid rgba(0,0,0,.15); background:rgba(255,255,255,.3); cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+.cp-pbtn:hover:not(:disabled) { background:rgba(255,255,255,.5); }
+.cp-pbtn:disabled { opacity:.3; cursor:default; }
+.cp-pinfo { font-size:11px; min-width:36px; text-align:center; }
 .cp-hdr-red   { background:#fee2e2; color:#991b1b; }
 .cp-hdr-amber { background:#fef3c7; color:#92400e; }
 .cp-hdr-blue  { background:#dbeafe; color:#1d4ed8; }
