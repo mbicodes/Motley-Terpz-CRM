@@ -2,13 +2,18 @@
   <div class="hs-root">
     <div class="hs-topbar">
       <span class="hs-title">Customer Health Scores</span>
-      <div class="hs-filters">
-        <button v-for="f in FILTERS" :key="f.key"
-          class="hs-filter-btn"
-          :class="{ 'hs-filter-active': activeFilter === f.key }"
-          @click="activeFilter = f.key">
-          {{ f.label }} <span class="hs-count">{{ countFor(f.key) }}</span>
-        </button>
+      <div class="hs-topbar-right">
+        <select v-model="selectedCompany" class="hs-company-select" @change="load">
+          <option v-for="c in companies" :key="c.name" :value="c.name">{{ c.name }}</option>
+        </select>
+        <div class="hs-filters">
+          <button v-for="f in FILTERS" :key="f.key"
+            class="hs-filter-btn"
+            :class="{ 'hs-filter-active': activeFilter === f.key }"
+            @click="activeFilter = f.key">
+            {{ f.label }} <span class="hs-count">{{ countFor(f.key) }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -79,6 +84,8 @@ const loading = ref(true)
 const scores = ref([])
 const search = ref('')
 const activeFilter = ref('all')
+const companies = ref([])
+const selectedCompany = ref('')
 
 const FILTERS = [
   { key: 'all',   label: 'All'       },
@@ -109,22 +116,38 @@ function openDash(customerId) {
   router.push({ name: 'CustomerDashboard', params: { customerId } })
 }
 
+async function loadCompanies() {
+  const list = await call('crm.motley_terpz.sales_intelligence.get_companies')
+  companies.value = list || []
+  const mt = (list || []).find(c => c.name === 'Motley Terpz')
+  selectedCompany.value = mt ? mt.name : (list?.[0]?.name || '')
+}
+
 async function load() {
+  if (!selectedCompany.value) return
   loading.value = true
   try {
-    scores.value = await call('crm.motley_terpz.sales_intelligence.get_customer_health_scores')
+    scores.value = await call('crm.motley_terpz.sales_intelligence.get_customer_health_scores', {
+      company: selectedCompany.value,
+    })
   } finally {
     loading.value = false
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadCompanies()
+  await load()
+})
 </script>
 
 <style scoped>
 .hs-root { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f1f5f9; min-height:100%; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
 .hs-topbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; background:#1e293b; border-radius:12px; padding:14px 20px; }
 .hs-title { font-size:16px; font-weight:800; color:#fff; }
+.hs-topbar-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.hs-company-select { padding:5px 10px; border-radius:6px; border:1px solid #475569; background:#0f172a; color:#e2e8f0; font-size:12px; font-weight:600; cursor:pointer; outline:none; }
+.hs-company-select:focus { border-color:#6366f1; }
 .hs-filters { display:flex; gap:6px; }
 .hs-filter-btn { padding:5px 12px; border-radius:6px; border:1px solid #475569; background:transparent; color:#94a3b8; font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:6px; }
 .hs-filter-btn:hover { border-color:#6366f1; color:#fff; }
