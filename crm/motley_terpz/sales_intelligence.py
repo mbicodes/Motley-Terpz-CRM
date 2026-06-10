@@ -450,63 +450,67 @@ def get_sales_projection(company=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 09 — AR Aging Heatmap
+# 09 — AR Aging Heatmap  (uses ERPNext Accounts Receivable Summary engine)
 # ─────────────────────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_ar_aging_heatmap(company=None):
+    from erpnext.accounts.report.accounts_receivable_summary.accounts_receivable_summary import (
+        execute,
+    )
+
     company = company or _default_company()
-    today = getdate(nowdate())
+    today_date = getdate(nowdate())
 
-    rows = frappe.db.sql("""
-        SELECT customer, customer_name, due_date, outstanding_amount
-        FROM `tabSales Invoice`
-        WHERE docstatus=1 AND company=%(c)s AND outstanding_amount > 0
-        ORDER BY customer_name
-    """, {"c": company}, as_dict=True)
+    filters = frappe._dict({
+        "company": company,
+        "report_date": today_date,
+        "ageing_based_on": "Due Date",
+        "calculate_ageing_with": "Report Date",
+        "range": "30, 60, 90, 120",
+        "show_future_payments": 0,
+        "show_gl_balance": 0,
+        "show_sales_person": 0,
+        "party_type": "Customer",
+    })
 
-    # Build per-customer dict
-    customers = {}
-    buckets = ["current", "1_30", "31_60", "61_90", "90_plus"]
+    _columns, data = execute(filters)
 
-    for r in rows:
-        cust = r.customer
-        if cust not in customers:
-            customers[cust] = {
-                "customer": cust,
-                "customer_name": r.customer_name,
-                "current": 0.0, "1_30": 0.0, "31_60": 0.0,
-                "61_90": 0.0, "90_plus": 0.0, "total": 0.0,
-            }
-        amt = flt(r.outstanding_amount)
-        if not r.due_date:
-            customers[cust]["current"] += amt
-        else:
-            d = (today - getdate(r.due_date)).days
-            if d <= 0:
-                customers[cust]["current"] += amt
-            elif d <= 30:
-                customers[cust]["1_30"] += amt
-            elif d <= 60:
-                customers[cust]["31_60"] += amt
-            elif d <= 90:
-                customers[cust]["61_90"] += amt
-            else:
-                customers[cust]["90_plus"] += amt
-        customers[cust]["total"] += amt
+    BUCKET_KEYS = ["range1", "range2", "range3", "range4", "range5"]
+    grid = []
+    col_totals = {k: 0.0 for k in BUCKET_KEYS}
+    col_totals["total"] = 0.0
+    max_per_bucket = {k: 0.0 for k in BUCKET_KEYS}
 
-    grid = list(customers.values())
+    for row in (data or []):
+        # Skip summary/total rows the report may append
+        if row.get("is_total_row") or not row.get("party"):
+            continue
+        # Only customers
+        if row.get("party_type") and row.get("party_type") != "Customer":
+            continue
+
+        outstanding = flt(row.get("outstanding", 0))
+        if outstanding <= 0:
+            continue
+
+        buckets = {k: flt(row.get(k, 0)) for k in BUCKET_KEYS}
+        grid.append({
+            "customer":      row.get("party", ""),
+            "customer_name": row.get("party_name") or row.get("party", ""),
+            **buckets,
+            "total": outstanding,
+        })
+
+        for k, v in buckets.items():
+            col_totals[k] += v
+            if v > max_per_bucket[k]:
+                max_per_bucket[k] = v
+        col_totals["total"] += outstanding
+
     grid.sort(key=lambda x: -x["total"])
-
-    # Column totals
-    col_totals = {b: sum(c[b] for c in grid) for b in buckets}
-    col_totals["total"] = sum(col_totals.values())
-
-    # Max per-bucket value for color intensity
-    max_per_bucket = {b: max((c[b] for c in grid), default=1) or 1 for b in buckets}
 
     return {
         "grid": grid,
         "col_totals": col_totals,
         "max_per_bucket": max_per_bucket,
-        "buckets": buckets,
     }

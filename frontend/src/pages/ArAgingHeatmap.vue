@@ -86,20 +86,20 @@ const companies = ref([])
 const selectedCompany = ref('')
 
 const BUCKETS = [
-  { key: 'current', label: 'Current',  cls: 'ar-ok'   },
-  { key: '1_30',    label: '1–30 d',   cls: 'ar-warn' },
-  { key: '31_60',   label: '31–60 d',  cls: 'ar-warn' },
-  { key: '61_90',   label: '61–90 d',  cls: 'ar-bad'  },
-  { key: '90_plus', label: '90+ d',    cls: 'ar-bad'  },
+  { key: 'range1', label: '0–30 d',    cls: 'ar-ok'   },
+  { key: 'range2', label: '31–60 d',   cls: 'ar-warn' },
+  { key: 'range3', label: '61–90 d',   cls: 'ar-bad'  },
+  { key: 'range4', label: '91–120 d',  cls: 'ar-bad'  },
+  { key: 'range5', label: '120+ d',    cls: 'ar-bad'  },
 ]
 
 // Colors per bucket (low → high intensity)
 const BUCKET_COLORS = {
-  current: ['#f0fdf4', '#bbf7d0', '#4ade80', '#16a34a'],
-  '1_30':  ['#fffbeb', '#fde68a', '#fbbf24', '#d97706'],
-  '31_60': ['#fff7ed', '#fed7aa', '#fb923c', '#ea580c'],
-  '61_90': ['#fef2f2', '#fecaca', '#f87171', '#dc2626'],
-  '90_plus':['#fdf2f8','#f5d0fe','#d946ef','#9d174d'],
+  range1: ['#f0fdf4', '#bbf7d0', '#4ade80', '#16a34a'],
+  range2: ['#fffbeb', '#fde68a', '#fbbf24', '#d97706'],
+  range3: ['#fff7ed', '#fed7aa', '#fb923c', '#ea580c'],
+  range4: ['#fef2f2', '#fecaca', '#f87171', '#dc2626'],
+  range5: ['#fdf2f8', '#f5d0fe', '#d946ef', '#9d174d'],
 }
 
 function cellStyle(val, bucket) {
