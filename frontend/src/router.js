@@ -61,6 +61,32 @@ const routes = [
     component: () => import('@/pages/PipelineCustomers.vue'),
     props: true,
   },
+  // Motley Terpz — Sales Intelligence
+  {
+    path: '/sales-command-center',
+    name: 'SalesCommandCenter',
+    component: () => import('@/pages/SalesCommandCenter.vue'),
+  },
+  {
+    path: '/cash-projection',
+    name: 'CashProjection',
+    component: () => import('@/pages/CashProjection.vue'),
+  },
+  {
+    path: '/customer-health-scores',
+    name: 'CustomerHealthScores',
+    component: () => import('@/pages/CustomerHealthScores.vue'),
+  },
+  {
+    path: '/sales-projection',
+    name: 'SalesProjection',
+    component: () => import('@/pages/SalesProjection.vue'),
+  },
+  {
+    path: '/ar-aging-heatmap',
+    name: 'ArAgingHeatmap',
+    component: () => import('@/pages/ArAgingHeatmap.vue'),
+  },
   {
     path: '/customer-dashboard/:customerId',
     name: 'CustomerDashboard',

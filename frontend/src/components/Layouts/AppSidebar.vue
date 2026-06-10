@@ -268,6 +268,15 @@ const links = [
   },
 ]
 
+// ── Motley Terpz — Sales Intelligence links ──────────────────────────────────
+const salesIntelligenceLinks = [
+  { label: '📊 Command Center',   to: { name: 'SalesCommandCenter'  } },
+  { label: '💵 Cash Projection',  to: { name: 'CashProjection'      } },
+  { label: '🏥 Health Scores',    to: { name: 'CustomerHealthScores'} },
+  { label: '📈 Sales Projection', to: { name: 'SalesProjection'     } },
+  { label: '🔥 AR Aging',         to: { name: 'ArAgingHeatmap'      } },
+]
+
 // ── Motley Terpz — customer pipeline links ───────────────────────────────────
 const customerPipelineLinks = [
   { label: '❄️ Fresh Frozen',        to: { name: 'PipelineCustomers', params: { pipeline: 'fresh_frozen'      } } },
@@ -292,6 +301,13 @@ const allViews = computed(() => {
       hideLabel: true,
       opened: true,
       views: beforeCustomers,
+    },
+    // Sales Intelligence section
+    {
+      name: 'Sales Intelligence',
+      hideLabel: false,
+      opened: true,
+      views: salesIntelligenceLinks,
     },
     // Customers section (Motley Terpz pipelines) — between Deals and Contacts
     {
