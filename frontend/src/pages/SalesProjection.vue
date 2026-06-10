@@ -2,11 +2,16 @@
   <div class="sp-root">
     <div class="sp-topbar">
       <span class="sp-title">Sales Projection by Product Line</span>
-      <div class="sp-legend">
-        <span v-for="(color, name) in LINE_COLORS" :key="name" class="sp-leg-item">
-          <span class="sp-leg-dot" :style="{background: color}"></span>{{ name }}
-        </span>
-        <span class="sp-leg-item sp-leg-proj"><span class="sp-leg-dot sp-leg-stripe"></span>Projected (SO)</span>
+      <div class="sp-topbar-right">
+        <select v-model="selectedCompany" class="sp-company-select" @change="load">
+          <option v-for="c in companies" :key="c.name" :value="c.name">{{ c.name }}</option>
+        </select>
+        <div class="sp-legend">
+          <span v-for="(color, name) in LINE_COLORS" :key="name" class="sp-leg-item">
+            <span class="sp-leg-dot" :style="{background: color}"></span>{{ name }}
+          </span>
+          <span class="sp-leg-item sp-leg-proj"><span class="sp-leg-dot sp-leg-stripe"></span>Projected (SO)</span>
+        </div>
       </div>
     </div>
 
@@ -75,6 +80,8 @@ import { call } from 'frappe-ui'
 
 const loading = ref(true)
 const d = ref({ weeks: [], product_lines: [], max_value: 1 })
+const companies = ref([])
+const selectedCompany = ref('')
 
 const LINE_COLORS = {
   'Fresh Frozen':      '#06b6d4',
@@ -105,22 +112,38 @@ function fmtK(v) {
   return '$' + n.toFixed(0)
 }
 
+async function loadCompanies() {
+  const list = await call('crm.motley_terpz.sales_intelligence.get_companies')
+  companies.value = list || []
+  const mt = (list || []).find(c => c.name === 'Motley Terpz')
+  selectedCompany.value = mt ? mt.name : (list?.[0]?.name || '')
+}
+
 async function load() {
+  if (!selectedCompany.value) return
   loading.value = true
   try {
-    d.value = await call('crm.motley_terpz.sales_intelligence.get_sales_projection')
+    d.value = await call('crm.motley_terpz.sales_intelligence.get_sales_projection', {
+      company: selectedCompany.value,
+    })
   } finally {
     loading.value = false
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadCompanies()
+  await load()
+})
 </script>
 
 <style scoped>
-.sp-root { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f1f5f9; min-height:100%; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.sp-root { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f1f5f9; height:100%; overflow-y:auto; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
 .sp-topbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; background:#1e293b; border-radius:12px; padding:14px 20px; }
 .sp-title { font-size:16px; font-weight:800; color:#fff; }
+.sp-topbar-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.sp-company-select { padding:5px 10px; border-radius:6px; border:1px solid #475569; background:#0f172a; color:#e2e8f0; font-size:12px; font-weight:600; cursor:pointer; outline:none; }
+.sp-company-select:focus { border-color:#6366f1; }
 .sp-legend { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 .sp-leg-item { display:flex; align-items:center; gap:5px; font-size:11px; color:#94a3b8; }
 .sp-leg-dot { width:10px; height:10px; border-radius:2px; display:inline-block; }

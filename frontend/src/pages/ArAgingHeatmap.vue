@@ -2,11 +2,16 @@
   <div class="ar-root">
     <div class="ar-topbar">
       <span class="ar-title">AR Aging Heatmap</span>
-      <div class="ar-legend">
-        <span class="ar-leg-label">Intensity:</span>
-        <span class="ar-leg-swatch ar-leg-lo">Low</span>
-        <span class="ar-leg-swatch ar-leg-mid">Mid</span>
-        <span class="ar-leg-swatch ar-leg-hi">High</span>
+      <div class="ar-topbar-right">
+        <select v-model="selectedCompany" class="ar-company-select" @change="load">
+          <option v-for="c in companies" :key="c.name" :value="c.name">{{ c.name }}</option>
+        </select>
+        <div class="ar-legend">
+          <span class="ar-leg-label">Intensity:</span>
+          <span class="ar-leg-swatch ar-leg-lo">Low</span>
+          <span class="ar-leg-swatch ar-leg-mid">Mid</span>
+          <span class="ar-leg-swatch ar-leg-hi">High</span>
+        </div>
       </div>
     </div>
 
@@ -77,6 +82,8 @@ const router = useRouter()
 const loading = ref(true)
 const d = ref({})
 const search = ref('')
+const companies = ref([])
+const selectedCompany = ref('')
 
 const BUCKETS = [
   { key: 'current', label: 'Current',  cls: 'ar-ok'   },
@@ -125,22 +132,38 @@ function openDash(customerId) {
   router.push({ name: 'CustomerDashboard', params: { customerId } })
 }
 
+async function loadCompanies() {
+  const list = await call('crm.motley_terpz.sales_intelligence.get_companies')
+  companies.value = list || []
+  const mt = (list || []).find(c => c.name === 'Motley Terpz')
+  selectedCompany.value = mt ? mt.name : (list?.[0]?.name || '')
+}
+
 async function load() {
+  if (!selectedCompany.value) return
   loading.value = true
   try {
-    d.value = await call('crm.motley_terpz.sales_intelligence.get_ar_aging_heatmap')
+    d.value = await call('crm.motley_terpz.sales_intelligence.get_ar_aging_heatmap', {
+      company: selectedCompany.value,
+    })
   } finally {
     loading.value = false
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadCompanies()
+  await load()
+})
 </script>
 
 <style scoped>
-.ar-root { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f1f5f9; min-height:100%; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
-.ar-topbar { display:flex; align-items:center; justify-content:space-between; background:#1e293b; border-radius:12px; padding:14px 20px; }
+.ar-root { display:flex; flex-direction:column; gap:14px; padding:16px; background:#f1f5f9; height:100%; overflow-y:auto; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.ar-topbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; background:#1e293b; border-radius:12px; padding:14px 20px; }
 .ar-title { font-size:16px; font-weight:800; color:#fff; }
+.ar-topbar-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.ar-company-select { padding:5px 10px; border-radius:6px; border:1px solid #475569; background:#0f172a; color:#e2e8f0; font-size:12px; font-weight:600; cursor:pointer; outline:none; }
+.ar-company-select:focus { border-color:#6366f1; }
 .ar-legend { display:flex; align-items:center; gap:8px; }
 .ar-leg-label { font-size:11px; color:#94a3b8; }
 .ar-leg-swatch { padding:2px 10px; border-radius:4px; font-size:10px; font-weight:700; }
