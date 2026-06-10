@@ -18,7 +18,17 @@ PRODUCT_LINES = {
 
 
 def _default_company():
-    return frappe.defaults.get_global_default("company") or ""
+    default = frappe.defaults.get_global_default("company")
+    if default:
+        return default
+    # Fall back to first company alphabetically
+    companies = frappe.get_all("Company", pluck="name", order_by="name")
+    return companies[0] if companies else ""
+
+
+@frappe.whitelist()
+def get_companies():
+    return frappe.get_all("Company", fields=["name", "abbr"], order_by="name")
 
 
 def _sum_invoices(company, from_date, to_date):
@@ -102,7 +112,7 @@ def get_command_center(company=None):
     """, {"c": company}, as_dict=True)
 
     recent_invoices = frappe.db.sql("""
-        SELECT name, customer_name, grand_total, posting_date, status
+        SELECT name, customer_name, grand_total, outstanding_amount, posting_date, status
         FROM `tabSales Invoice`
         WHERE docstatus=1 AND company=%(c)s
         ORDER BY posting_date DESC, creation DESC
