@@ -84,10 +84,11 @@ const companies = ref([])
 const selectedCompany = ref('')
 
 const LINE_COLORS = {
-  'Fresh Frozen':      '#06b6d4',
-  'Solventless / IWH': '#8b5cf6',
-  'Rosin':             '#f59e0b',
-  'Distribution':      '#10b981',
+  'Rosins':         '#8b5cf6',
+  'Vapes':          '#06b6d4',
+  'Extracts / BHO': '#f59e0b',
+  'Fresh Frozen':   '#10b981',
+  'Other':          '#94a3b8',
 }
 const FALLBACK_COLORS = ['#6366f1','#ec4899','#14b8a6','#f97316']
 

@@ -8,12 +8,15 @@ from frappe.utils import flt, getdate, nowdate, cint
 from datetime import timedelta
 
 
-# ── Product line → item_group mapping (adjust to match your ERPNext item groups) ──
+# ── Product line → item_group mapping ─────────────────────────────────────────
 PRODUCT_LINES = {
-    "Fresh Frozen":       ["Fresh Frozen"],
-    "Solventless / IWH":  ["Extracts", "Solventless", "IWH", "IWH/Solventless"],
-    "Rosin":              ["Rosin", "Live Rosin", "Pressed Hash"],
-    "Distribution":       ["Distribution", "Retail", "Retail / Distro"],
+    "Rosins":         ["Primes", "Subprimes", "Full Spec", "VRR", "Raw Rosin",
+                       "Food Grade", "1g Jarred Rosin", "3g Jarred Rosin", "Rosin", "Rosins"],
+    "Vapes":          ["0.5g O2 Vape", "1g O2 Vapes", "0.5G Vapes (Packaged)", "1G Vapes (Packaged)"],
+    "Extracts / BHO": ["LIQUID LIVE RESIN", "Diamonds", "DISTALLATE", "BHO",
+                       "ISOLATED MATERIAL", "Bubble Hash", "Bubble Cured", "Static"],
+    "Fresh Frozen":   ["Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO"],
+    "Other":          ["Gummies", "Pre Rolls", "Copacking", "Caligreen", "Packaged goods"],
 }
 
 
@@ -415,21 +418,19 @@ def get_sales_projection(company=None):
         row = {"label": week["label"], "future": week["future"], "lines": {}}
 
         for line_name, groups in PRODUCT_LINES.items():
+            placeholders = ",".join(["%s"] * len(groups))
             if not week["future"]:
-                # Actuals from invoices
-                placeholders = ",".join(["%s"] * len(groups))
+                # Actuals: submitted SOs by transaction_date
                 val = frappe.db.sql(f"""
-                    SELECT COALESCE(SUM(sii.amount), 0) AS total
-                    FROM `tabSales Invoice Item` sii
-                    JOIN `tabSales Invoice` si ON si.name = sii.parent
-                    WHERE si.docstatus=1 AND si.company=%s
-                      AND si.posting_date BETWEEN %s AND %s
-                      AND sii.item_group IN ({placeholders})
+                    SELECT COALESCE(SUM(soi.amount), 0) AS total
+                    FROM `tabSales Order Item` soi
+                    JOIN `tabSales Order` so ON so.name = soi.parent
+                    WHERE so.docstatus=1 AND so.company=%s
+                      AND so.transaction_date BETWEEN %s AND %s
+                      AND soi.item_group IN ({placeholders})
                 """, tuple([company, str(week["start"]), str(week["end"])] + groups))
-                row["lines"][line_name] = flt(val[0][0]) if val else 0.0
             else:
-                # Projected from open SOs
-                placeholders = ",".join(["%s"] * len(groups))
+                # Projected: open SOs by expected delivery date
                 val = frappe.db.sql(f"""
                     SELECT COALESCE(SUM(soi.amount), 0) AS total
                     FROM `tabSales Order Item` soi
@@ -439,7 +440,7 @@ def get_sales_projection(company=None):
                       AND COALESCE(so.delivery_date, so.transaction_date) BETWEEN %s AND %s
                       AND soi.item_group IN ({placeholders})
                 """, tuple([company, str(week["start"]), str(week["end"])] + groups))
-                row["lines"][line_name] = flt(val[0][0]) if val else 0.0
+            row["lines"][line_name] = flt(val[0][0]) if val else 0.0
 
         row["total"] = sum(row["lines"].values())
         result.append(row)
