@@ -142,33 +142,40 @@ def get_command_center(company=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 02 — Weekly Cash Projection
+# 02 — Weekly Cash Projection (all companies)
 # ─────────────────────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_cash_projection(company=None):
-    company = company or _default_company()
     today = getdate(nowdate())
 
+    # Build WHERE clause — all companies if none specified
+    if company:
+        inv_where = "docstatus=1 AND company=%(c)s AND outstanding_amount > 0"
+        so_where  = "docstatus=1 AND company=%(c)s AND status IN ('To Deliver and Bill','To Bill','To Deliver')"
+        params = {"c": company}
+    else:
+        inv_where = "docstatus=1 AND outstanding_amount > 0"
+        so_where  = "docstatus=1 AND status IN ('To Deliver and Bill','To Bill','To Deliver')"
+        params = {}
+
     # Open invoices
-    invoices = frappe.db.sql("""
-        SELECT name, customer_name, grand_total, outstanding_amount,
+    invoices = frappe.db.sql(f"""
+        SELECT name, company, customer_name, grand_total, outstanding_amount,
                due_date, status
         FROM `tabSales Invoice`
-        WHERE docstatus=1 AND company=%(c)s
-          AND outstanding_amount > 0
+        WHERE {inv_where}
         ORDER BY due_date ASC
-    """, {"c": company}, as_dict=True)
+    """, params, as_dict=True)
 
     # Open SOs (projected billing)
-    sales_orders = frappe.db.sql("""
-        SELECT name, customer_name, grand_total,
+    sales_orders = frappe.db.sql(f"""
+        SELECT name, company, customer_name, grand_total,
                COALESCE(delivery_date, transaction_date) AS due_date,
                status
         FROM `tabSales Order`
-        WHERE docstatus=1 AND company=%(c)s
-          AND status IN ('To Deliver and Bill','To Bill','To Deliver')
+        WHERE {so_where}
         ORDER BY delivery_date ASC
-    """, {"c": company}, as_dict=True)
+    """, params, as_dict=True)
 
     def bucket(due_date_val):
         if not due_date_val:
@@ -193,6 +200,7 @@ def get_cash_projection(company=None):
         result[b].append({
             "type": "invoice",
             "name": inv.name,
+            "company": inv.company,
             "customer": inv.customer_name,
             "amount": flt(inv.outstanding_amount),
             "total": flt(inv.grand_total),
@@ -205,6 +213,7 @@ def get_cash_projection(company=None):
         result[b].append({
             "type": "sales_order",
             "name": so.name,
+            "company": so.company,
             "customer": so.customer_name,
             "amount": flt(so.grand_total),
             "total": flt(so.grand_total),

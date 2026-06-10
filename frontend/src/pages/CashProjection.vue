@@ -29,13 +29,14 @@
         <table class="cp-table">
           <thead>
             <tr>
-              <th style="width:16%">Document</th>
-              <th style="width:26%">Customer</th>
-              <th style="width:12%">Due Date</th>
-              <th style="width:10%">Type</th>
-              <th style="width:14%;text-align:right">Amount</th>
-              <th style="width:14%;text-align:right">Invoice Total</th>
-              <th style="width:8%">Status</th>
+              <th style="width:14%">Document</th>
+              <th style="width:22%">Customer</th>
+              <th style="width:10%">Company</th>
+              <th style="width:10%">Due Date</th>
+              <th style="width:8%">Type</th>
+              <th style="width:13%;text-align:right">Amount</th>
+              <th style="width:13%;text-align:right">Total</th>
+              <th style="width:10%">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -44,6 +45,7 @@
                 @click="openDoc(r)">
               <td class="cp-mono">{{ r.name }}</td>
               <td>{{ r.customer }}</td>
+              <td><span class="cp-company">{{ companyAbbr(r.company) }}</span></td>
               <td :class="col.key === 'overdue' ? 'cp-redtxt' : ''">{{ r.due_date || '—' }}</td>
               <td>
                 <span class="cp-type" :class="r.type === 'invoice' ? 'cp-type-inv' : 'cp-type-so'">
@@ -80,9 +82,23 @@ const COLS = [
   { key: 'week4plus',label: 'Week 4+',    color: 'gray'  },
 ]
 
+// Map full company names to short labels
+const COMPANY_ABBR = {
+  'Motley Terpz':                   'MT',
+  'LA Canna Distro':                'LCD',
+  'Master Touch Manufacturing':     'MTM',
+  'MTPZ':                           'MTPZ',
+  'TMM Group':                      'TMMG',
+  'TSBC Ranch':                     'TSBC',
+}
+function companyAbbr(name) {
+  return COMPANY_ABBR[name] || (name || '').substring(0, 4).toUpperCase()
+}
+
 async function load() {
   loading.value = true
   try {
+    // No company filter — returns all companies
     d.value = await call('crm.motley_terpz.sales_intelligence.get_cash_projection')
   } finally {
     loading.value = false
@@ -148,6 +164,7 @@ onMounted(load)
 .cp-mono   { font-family:monospace; font-size:11px; color:#64748b; }
 .cp-redtxt { color:#dc2626; }
 .cp-empty  { text-align:center; padding:14px; color:#94a3b8; font-size:12px; }
+.cp-company { padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; background:#f1f5f9; color:#475569; }
 .cp-type { padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; }
 .cp-type-inv { background:#ede9fe; color:#6d28d9; }
 .cp-type-so  { background:#fef3c7; color:#92400e; }
