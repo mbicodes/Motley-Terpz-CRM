@@ -61,6 +61,31 @@ const routes = [
     component: () => import('@/pages/PipelineCustomers.vue'),
     props: true,
   },
+  // Motley Terpz — deal pipeline kanban boards
+  {
+    path: '/pipeline/fresh-frozen',
+    name: 'PipelineFreshFrozen',
+    component: () => import('@/pages/PipelineKanban.vue'),
+    props: { pipeline: 'fresh_frozen' },
+  },
+  {
+    path: '/pipeline/rosin',
+    name: 'PipelineRosin',
+    component: () => import('@/pages/PipelineKanban.vue'),
+    props: { pipeline: 'rosin' },
+  },
+  {
+    path: '/pipeline/distro',
+    name: 'PipelineDistro',
+    component: () => import('@/pages/PipelineKanban.vue'),
+    props: { pipeline: 'distro' },
+  },
+  {
+    path: '/pipeline/tolling',
+    name: 'PipelineTolling',
+    component: () => import('@/pages/PipelineKanban.vue'),
+    props: { pipeline: 'tolling' },
+  },
   // Motley Terpz — Sales Intelligence
   {
     path: '/sales-command-center',

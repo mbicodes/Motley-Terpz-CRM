@@ -277,6 +277,14 @@ const salesIntelligenceLinks = [
   { label: '🔥 AR Aging',         to: { name: 'ArAgingHeatmap'      } },
 ]
 
+// ── Motley Terpz — deal pipeline kanban links ────────────────────────────────
+const dealPipelineLinks = [
+  { label: '❄️ Fresh Frozen',        to: { name: 'PipelineFreshFrozen' } },
+  { label: '🌿 Rosin / Solventless', to: { name: 'PipelineRosin'       } },
+  { label: '🏪 Distribution',        to: { name: 'PipelineDistro'      } },
+  { label: '⚙️ Tolling',             to: { name: 'PipelineTolling'     } },
+]
+
 // ── Motley Terpz — customer pipeline links ───────────────────────────────────
 const customerPipelineLinks = [
   { label: '❄️ Fresh Frozen',        to: { name: 'PipelineCustomers', params: { pipeline: 'fresh_frozen'      } } },
@@ -308,6 +316,13 @@ const allViews = computed(() => {
       hideLabel: false,
       opened: true,
       views: salesIntelligenceLinks,
+    },
+    // Deal Pipelines (Motley Terpz kanban boards)
+    {
+      name: 'Deal Pipelines',
+      hideLabel: false,
+      opened: true,
+      views: dealPipelineLinks,
     },
     // Customers section (Motley Terpz pipelines) — between Deals and Contacts
     {

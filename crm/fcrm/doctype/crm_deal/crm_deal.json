@@ -74,6 +74,28 @@
   "last_responded_on",
   "log_tab",
   "status_change_log",
+  "pipeline_tab",
+  "custom_pipeline_type",
+  "custom_pipeline_stage",
+  "section_break_ff_rosin",
+  "custom_strain_name",
+  "custom_available_lbs",
+  "column_break_rosin1",
+  "custom_micron_size",
+  "custom_rosin_type",
+  "custom_target_output_g",
+  "section_break_distro",
+  "custom_license_number",
+  "column_break_distro1",
+  "custom_license_verified",
+  "section_break_tolling",
+  "custom_input_material_type",
+  "custom_lbs_per_run",
+  "column_break_tolling1",
+  "custom_run_frequency",
+  "custom_rate_per_lb",
+  "custom_byo_flag",
+  "custom_work_order",
   "lost_details_tab",
   "lost_reason",
   "lost_notes"
@@ -465,6 +487,134 @@
    "fieldtype": "Datetime",
    "label": "Last Responded On",
    "read_only": 1
+  },
+  {
+   "fieldname": "pipeline_tab",
+   "fieldtype": "Tab Break",
+   "label": "Pipeline"
+  },
+  {
+   "fieldname": "custom_pipeline_type",
+   "fieldtype": "Select",
+   "label": "Pipeline Type",
+   "options": "\nFresh Frozen\nSolventless / Rosin\nDistribution\nTolling"
+  },
+  {
+   "fieldname": "custom_pipeline_stage",
+   "fieldtype": "Data",
+   "label": "Pipeline Stage"
+  },
+  {
+   "fieldname": "section_break_ff_rosin",
+   "fieldtype": "Section Break",
+   "label": "Fresh Frozen / Rosin Details",
+   "depends_on": "eval:in_list(['Fresh Frozen', 'Solventless / Rosin'], doc.custom_pipeline_type)"
+  },
+  {
+   "fieldname": "custom_strain_name",
+   "fieldtype": "Data",
+   "label": "Strain Name",
+   "depends_on": "eval:in_list(['Fresh Frozen', 'Solventless / Rosin'], doc.custom_pipeline_type)"
+  },
+  {
+   "fieldname": "custom_available_lbs",
+   "fieldtype": "Float",
+   "label": "Available Lbs",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Fresh Frozen'"
+  },
+  {
+   "fieldname": "column_break_rosin1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_micron_size",
+   "fieldtype": "Int",
+   "label": "Micron Size (\u00b5)",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Solventless / Rosin'"
+  },
+  {
+   "fieldname": "custom_rosin_type",
+   "fieldtype": "Select",
+   "label": "Rosin Type",
+   "options": "\nFull Melt\n90u+\nMixed\nRosin",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Solventless / Rosin'"
+  },
+  {
+   "fieldname": "custom_target_output_g",
+   "fieldtype": "Float",
+   "label": "Target Output (g)",
+   "depends_on": "eval:in_list(['Fresh Frozen', 'Solventless / Rosin'], doc.custom_pipeline_type)"
+  },
+  {
+   "fieldname": "section_break_distro",
+   "fieldtype": "Section Break",
+   "label": "Distribution Details",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Distribution'"
+  },
+  {
+   "fieldname": "custom_license_number",
+   "fieldtype": "Data",
+   "label": "License Number",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Distribution'"
+  },
+  {
+   "fieldname": "column_break_distro1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_license_verified",
+   "fieldtype": "Check",
+   "label": "License Verified",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Distribution'"
+  },
+  {
+   "fieldname": "section_break_tolling",
+   "fieldtype": "Section Break",
+   "label": "Tolling Details",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Tolling'"
+  },
+  {
+   "fieldname": "custom_input_material_type",
+   "fieldtype": "Select",
+   "label": "Input Material Type",
+   "options": "\nFresh Frozen\nDry Ice Sift\nDry Sift\nKief\nTrimmed Bud",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Tolling'"
+  },
+  {
+   "fieldname": "custom_lbs_per_run",
+   "fieldtype": "Float",
+   "label": "Lbs Per Run",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Tolling'"
+  },
+  {
+   "fieldname": "column_break_tolling1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_run_frequency",
+   "fieldtype": "Select",
+   "label": "Run Frequency",
+   "options": "\nWeekly\nBi-Weekly\nMonthly\nAs-Needed",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Tolling'"
+  },
+  {
+   "fieldname": "custom_rate_per_lb",
+   "fieldtype": "Currency",
+   "label": "Rate Per Lb",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Tolling'"
+  },
+  {
+   "fieldname": "custom_byo_flag",
+   "fieldtype": "Check",
+   "label": "BYO Material",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Tolling'"
+  },
+  {
+   "fieldname": "custom_work_order",
+   "fieldtype": "Link",
+   "label": "Work Order",
+   "options": "Work Order",
+   "depends_on": "eval:doc.custom_pipeline_type == 'Tolling'"
   },
   {
    "fieldname": "lost_details_tab",
