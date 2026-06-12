@@ -279,6 +279,7 @@ const salesIntelligenceLinks = [
 
 // ── Motley Terpz — deal pipeline kanban links ────────────────────────────────
 const dealPipelineLinks = [
+  { label: '📊 Pipeline Health', to: { name: 'PipelineHealth' } },
   { label: '❄️ Fresh Frozen',        to: { name: 'PipelineFreshFrozen' } },
   { label: '🌿 Rosin / Solventless', to: { name: 'PipelineRosin'       } },
   { label: '🏪 Distribution',        to: { name: 'PipelineDistro'      } },

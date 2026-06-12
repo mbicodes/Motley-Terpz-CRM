@@ -61,6 +61,12 @@ const routes = [
     component: () => import('@/pages/PipelineCustomers.vue'),
     props: true,
   },
+  // Motley Terpz — pipeline health dashboard
+  {
+    path: '/pipeline-health',
+    name: 'PipelineHealth',
+    component: () => import('@/pages/PipelineHealthDashboard.vue'),
+  },
   // Motley Terpz — deal pipeline kanban boards
   {
     path: '/pipeline/fresh-frozen',
