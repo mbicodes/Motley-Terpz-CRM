@@ -75,16 +75,22 @@
                   class="rounded-lg border bg-surface-white p-3 cursor-pointer hover:shadow-sm transition-shadow"
                   @click="openDeal(deal.name)"
                 >
-                  <!-- Organization -->
+                  <!-- Organization + dormancy dot -->
                   <div class="flex items-center gap-2 mb-2">
                     <Avatar
                       :image="deal.organization_logo"
                       :label="deal.organization || 'Unknown'"
                       size="sm"
                     />
-                    <span class="text-sm font-semibold text-ink-gray-9 truncate">
+                    <span class="text-sm font-semibold text-ink-gray-9 truncate flex-1">
                       {{ deal.organization || '(No Organization)' }}
                     </span>
+                    <span
+                      v-if="deal.dormancy_status"
+                      :title="dormancyLabel(deal)"
+                      :class="dormancyDotClass(deal.dormancy_status)"
+                      class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    />
                   </div>
 
                   <!-- Deal Value -->
@@ -355,6 +361,22 @@ const STAGE_COLOR_MAP = {
 
 function stageColorClass(color) {
   return STAGE_COLOR_MAP[color] || 'bg-gray-400'
+}
+
+const DORMANCY_DOT = {
+  Green:  'bg-green-500',
+  Yellow: 'bg-yellow-400',
+  Red:    'bg-red-500',
+}
+function dormancyDotClass(status) {
+  return DORMANCY_DOT[status] || 'bg-gray-300'
+}
+function dormancyLabel(deal) {
+  if (!deal.dormancy_status) return ''
+  const days = deal.dormancy_days || 0
+  if (deal.dormancy_status === 'Green')  return `Active — last order ${days}d ago`
+  if (deal.dormancy_status === 'Yellow') return `Check-in needed — last order ${days}d ago`
+  return `Dormant — no order in ${days}+ days`
 }
 
 function fmtCurrency(val) {

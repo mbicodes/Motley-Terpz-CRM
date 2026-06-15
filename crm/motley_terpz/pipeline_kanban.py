@@ -134,6 +134,21 @@ def get_pipeline_deals(pipeline):
         )
         org_logo_map = {r.name: r.organization_logo for r in rows}
 
+    # Fetch dormancy status from linked CRM Lead (matched by organization)
+    dormancy_map = {}
+    if org_names:
+        lead_rows = frappe.get_all(
+            "CRM Lead",
+            filters={"organization": ["in", org_names]},
+            fields=["organization", "custom_dormancy_status", "custom_dormancy_days"],
+        )
+        for lr in lead_rows:
+            if lr.organization and lr.custom_dormancy_status:
+                dormancy_map[lr.organization] = {
+                    "status": lr.custom_dormancy_status,
+                    "days":   lr.custom_dormancy_days or 0,
+                }
+
     # Fetch owner names in bulk
     owner_ids = list({d.deal_owner for d in deals if d.deal_owner})
     owner_map = {}
@@ -156,6 +171,9 @@ def get_pipeline_deals(pipeline):
         owner = owner_map.get(deal.deal_owner, frappe._dict())
         deal["deal_owner_name"]  = owner.get("full_name", deal.deal_owner or "")
         deal["deal_owner_image"] = owner.get("user_image", "")
+        dorm = dormancy_map.get(deal.organization, {})
+        deal["dormancy_status"] = dorm.get("status", "")
+        deal["dormancy_days"]   = dorm.get("days", 0)
         if stage in columns:
             columns[stage].append(deal)
         else:
