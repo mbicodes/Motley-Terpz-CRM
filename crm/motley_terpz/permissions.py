@@ -14,8 +14,9 @@ def get_lead_permission_query_conditions(user):
     if not user:
         user = frappe.session.user
 
-    # Admins bypass all filters
-    if user == "Administrator" or "System Manager" in frappe.get_roles(user):
+    # Only the technical Administrator account bypasses all filters.
+    # System Manager role alone does NOT bypass — regular staff often hold it.
+    if user == "Administrator":
         return ""
 
     conditions = []
