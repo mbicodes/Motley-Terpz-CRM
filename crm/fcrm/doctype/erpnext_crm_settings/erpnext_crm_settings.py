@@ -328,6 +328,7 @@ def create_customer_in_erpnext(doc, method):
 		"crm_deal": doc.name,
 		"contacts": json.dumps(contacts),
 		"address": json.dumps(address) if address else None,
+		"account_manager": doc.deal_owner or None,
 	}
 
 	try:
