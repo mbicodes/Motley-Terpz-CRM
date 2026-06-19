@@ -370,6 +370,21 @@ def create_customer_in_erpnext(doc, method):
 		frappe.db.set_value("CRM Deal", doc.name, "erpnext_customer", customer_name)
 		frappe.publish_realtime("crm_customer_created")
 
+		if doc.deal_owner and not erpnext_crm_settings.is_erpnext_in_different_site:
+			try:
+				from frappe.desk.form.assign_to import add as assign_to_add
+				assign_to_add(
+					{
+						"assign_to": [doc.deal_owner],
+						"doctype": "Customer",
+						"name": customer_name,
+						"description": f"Assigned from CRM Deal {doc.name}",
+					},
+					ignore_permissions=True,
+				)
+			except Exception:
+				frappe.log_error(frappe.get_traceback(), f"Could not assign Customer {customer_name} to {doc.deal_owner}")
+
 
 @frappe.whitelist()
 def get_crm_form_script():
