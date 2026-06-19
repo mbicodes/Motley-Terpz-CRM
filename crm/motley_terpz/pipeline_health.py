@@ -5,6 +5,7 @@ Aggregates CRM Lead metrics per pipeline for Matt's health dashboard.
 
 import frappe
 from frappe.utils import flt, nowdate, add_days, getdate
+from crm.motley_terpz.sales_intelligence import _is_manager, _lead_cond
 
 
 PIPELINES = [
@@ -43,14 +44,17 @@ def get_pipeline_health():
     total_no_contact  = 0
     total_new_week    = 0
 
+    lc = _lead_cond()
+
     for p in PIPELINES:
         pipeline_value = PIPELINE_FILTER_MAP[p["key"]]
 
         # ── Stage counts ──────────────────────────────────────────────────────
-        stage_rows = frappe.db.sql("""
+        stage_rows = frappe.db.sql(f"""
             SELECT status, COUNT(*) AS cnt
             FROM `tabCRM Lead`
             WHERE custom_pipeline = %(pipeline)s
+              {lc}
             GROUP BY status
         """, {"pipeline": pipeline_value}, as_dict=True)
 
@@ -59,25 +63,27 @@ def get_pipeline_health():
         active_count = stage_counts.get("Active", 0)
 
         # ── New leads this week ───────────────────────────────────────────────
-        new_week = frappe.db.sql("""
+        new_week = frappe.db.sql(f"""
             SELECT COUNT(*) AS cnt
             FROM `tabCRM Lead`
             WHERE custom_pipeline = %(pipeline)s
               AND creation >= %(week_ago)s
+              {lc}
         """, {"pipeline": pipeline_value, "week_ago": week_ago}, as_dict=True)[0].cnt or 0
 
         # ── No contact in 30+ days ────────────────────────────────────────────
-        no_contact = frappe.db.sql("""
+        no_contact = frappe.db.sql(f"""
             SELECT COUNT(*) AS cnt
             FROM `tabCRM Lead`
             WHERE custom_pipeline = %(pipeline)s
               AND status NOT IN ('Lost', 'Inactive')
               AND (custom_last_contact_date IS NULL
                    OR custom_last_contact_date < %(month_ago)s)
+              {lc}
         """, {"pipeline": pipeline_value, "month_ago": month_ago_30}, as_dict=True)[0].cnt or 0
 
         # ── AR data via linked CRM leads ──────────────────────────────────────
-        ar_rows = frappe.db.sql("""
+        ar_rows = frappe.db.sql(f"""
             SELECT
                 COALESCE(SUM(l.custom_ar_balance), 0)     AS total_ar,
                 COALESCE(SUM(
@@ -87,13 +93,14 @@ def get_pipeline_health():
             FROM `tabCRM Lead` l
             WHERE l.custom_pipeline = %(pipeline)s
               AND l.custom_ar_balance > 0
+              {lc}
         """, {"pipeline": pipeline_value}, as_dict=True)
 
         pipeline_ar         = flt(ar_rows[0].total_ar) if ar_rows else 0.0
         pipeline_ar_overdue = flt(ar_rows[0].overdue_ar) if ar_rows else 0.0
 
         # ── Top active leads (most recent contact) ────────────────────────────
-        top_leads = frappe.db.sql("""
+        top_leads = frappe.db.sql(f"""
             SELECT
                 l.name,
                 l.lead_name,
@@ -106,18 +113,20 @@ def get_pipeline_health():
             FROM `tabCRM Lead` l
             WHERE l.custom_pipeline = %(pipeline)s
               AND l.status = 'Active'
+              {lc}
             ORDER BY l.custom_ar_balance DESC
             LIMIT 8
         """, {"pipeline": pipeline_value}, as_dict=True)
 
         # ── Overdue follow-ups ────────────────────────────────────────────────
-        overdue_followups = frappe.db.sql("""
+        overdue_followups = frappe.db.sql(f"""
             SELECT COUNT(*) AS cnt
             FROM `tabCRM Lead`
             WHERE custom_pipeline = %(pipeline)s
               AND custom_next_followup_date IS NOT NULL
               AND custom_next_followup_date < %(today)s
               AND status NOT IN ('Lost', 'Inactive')
+              {lc}
         """, {"pipeline": pipeline_value, "today": str(today)}, as_dict=True)[0].cnt or 0
 
         result["pipelines"].append({

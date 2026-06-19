@@ -19,14 +19,56 @@ PRODUCT_LINES = {
     "Other":          ["Gummies", "Pre Rolls", "Copacking", "Caligreen", "Packaged goods"],
 }
 
+_MANAGER_ROLES = {"System Manager", "Sales Manager", "Accounts Manager"}
+
 
 def _default_company():
     default = frappe.defaults.get_global_default("company")
     if default:
         return default
-    # Fall back to first company alphabetically
     companies = frappe.get_all("Company", pluck="name", order_by="name")
     return companies[0] if companies else ""
+
+
+# ── Permission helpers ─────────────────────────────────────────────────────────
+
+def _is_manager(user=None):
+    """Return True if user sees all data (admin or manager role)."""
+    if not user:
+        user = frappe.session.user
+    if user == "Administrator":
+        return True
+    return bool(set(frappe.get_roles(user)) & _MANAGER_ROLES)
+
+
+def _customer_cond(user=None, alias="c"):
+    """SQL AND clause limiting results to customers assigned to user.
+    Returns '' for admins/managers (no restriction)."""
+    if not user:
+        user = frappe.session.user
+    if _is_manager(user):
+        return ""
+    escaped = frappe.db.escape(user)
+    like = frappe.db.escape(f"%{user}%")
+    return (
+        f" AND ({alias}.`_assign` LIKE {like}"
+        f" OR {alias}.`account_manager` = {escaped})"
+    )
+
+
+def _lead_cond(user=None):
+    """SQL AND clause limiting CRM Leads to those owned by user.
+    Returns '' for admins/managers (no restriction)."""
+    if not user:
+        user = frappe.session.user
+    if _is_manager(user):
+        return ""
+    escaped = frappe.db.escape(user)
+    return (
+        f" AND (`tabCRM Lead`.`lead_owner` = {escaped}"
+        f" OR `tabCRM Lead`.`lead_owner` IS NULL"
+        f" OR `tabCRM Lead`.`lead_owner` = '')"
+    )
 
 
 @frappe.whitelist()
@@ -34,14 +76,15 @@ def get_companies():
     return frappe.get_all("Company", fields=["name", "abbr"], order_by="name")
 
 
-def _sum_invoices(company, from_date, to_date):
-    result = frappe.db.sql("""
+def _sum_invoices(company, from_date, to_date, cust_cond=""):
+    result = frappe.db.sql(f"""
         SELECT COALESCE(SUM(si.grand_total), 0) AS total
         FROM `tabSales Invoice` si
         JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus=1 AND si.company=%(company)s
           AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
           AND c.is_internal_customer = 0
+          {cust_cond}
     """, {"company": company, "from_date": from_date, "to_date": to_date}, as_dict=True)
     return flt(result[0].total) if result else 0.0
 
@@ -52,14 +95,15 @@ def _pct_change(old_val, new_val):
     return round((new_val - old_val) / old_val * 100, 1)
 
 
-def _ar_aging_summary(company, today):
-    rows = frappe.db.sql("""
+def _ar_aging_summary(company, today, cust_cond=""):
+    rows = frappe.db.sql(f"""
         SELECT si.due_date, si.outstanding_amount
         FROM `tabSales Invoice` si
         JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus=1 AND si.company=%(company)s
           AND si.outstanding_amount > 0
           AND c.is_internal_customer = 0
+          {cust_cond}
     """, {"company": company}, as_dict=True)
 
     buckets = {"current": 0.0, "1_30": 0.0, "31_60": 0.0, "61_90": 0.0, "90_plus": 0.0}
@@ -94,10 +138,13 @@ def get_command_center(company=None):
     last_week_end = week_start - timedelta(days=1)
     thirty_ago = today - timedelta(days=30)
 
-    rev_this = _sum_invoices(company, week_start, today)
-    rev_last = _sum_invoices(company, last_week_start, last_week_end)
+    cc = _customer_cond()
+    lc = _lead_cond()
 
-    top_customers = frappe.db.sql("""
+    rev_this = _sum_invoices(company, week_start, today, cc)
+    rev_last = _sum_invoices(company, last_week_start, last_week_end, cc)
+
+    top_customers = frappe.db.sql(f"""
         SELECT si.customer, si.customer_name,
                SUM(si.grand_total) AS revenue,
                COUNT(*) AS inv_count
@@ -106,35 +153,42 @@ def get_command_center(company=None):
         WHERE si.docstatus=1 AND si.company=%(c)s
           AND si.posting_date >= %(d)s
           AND c.is_internal_customer = 0
+          {cc}
         GROUP BY si.customer
         ORDER BY revenue DESC
         LIMIT 5
     """, {"c": company, "d": thirty_ago}, as_dict=True)
 
-    ar_aging = _ar_aging_summary(company, today)
+    ar_aging = _ar_aging_summary(company, today, cc)
     ar_total = sum(ar_aging.values())
 
-    so_data = frappe.db.sql("""
-        SELECT COUNT(*) AS cnt, COALESCE(SUM(grand_total), 0) AS val
-        FROM `tabSales Order`
-        WHERE docstatus=1 AND company=%(c)s
-          AND status IN ('To Deliver and Bill','To Bill','To Deliver')
+    so_data = frappe.db.sql(f"""
+        SELECT COUNT(*) AS cnt, COALESCE(SUM(so.grand_total), 0) AS val
+        FROM `tabSales Order` so
+        JOIN `tabCustomer` c ON c.name = so.customer
+        WHERE so.docstatus=1 AND so.company=%(c)s
+          AND so.status IN ('To Deliver and Bill','To Bill','To Deliver')
+          AND c.is_internal_customer = 0
+          {cc}
     """, {"c": company}, as_dict=True)
 
-    recent_invoices = frappe.db.sql("""
+    recent_invoices = frappe.db.sql(f"""
         SELECT si.name, si.customer_name, si.grand_total, si.outstanding_amount,
                si.posting_date, si.status
         FROM `tabSales Invoice` si
         JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus=1 AND si.company=%(c)s
           AND c.is_internal_customer = 0
+          {cc}
         ORDER BY si.posting_date DESC, si.creation DESC
         LIMIT 10
     """, {"c": company}, as_dict=True)
 
-    recent_leads = frappe.db.sql("""
+    recent_leads = frappe.db.sql(f"""
         SELECT name, lead_name, status, creation, source
         FROM `tabCRM Lead`
+        WHERE 1=1
+          {lc}
         ORDER BY creation DESC
         LIMIT 5
     """, {}, as_dict=True)
@@ -164,6 +218,8 @@ def get_cash_projection(company=None):
     ci = "AND si.company=%(c)s" if company else ""
     cs = "AND so.company=%(c)s" if company else ""
 
+    cc = _customer_cond()
+
     # 1. Invoice milestones from Payment Schedule (terms-aware)
     inv_sched = frappe.db.sql(f"""
         SELECT 'invoice' AS type,
@@ -176,6 +232,7 @@ def get_cash_projection(company=None):
         WHERE ps.parenttype='Sales Invoice' AND ps.outstanding > 0
           AND si.docstatus=1 AND si.outstanding_amount > 0
           AND c.is_internal_customer = 0 {ci}
+          {cc}
         ORDER BY ps.due_date
     """, p, as_dict=True)
 
@@ -189,6 +246,7 @@ def get_cash_projection(company=None):
         JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus=1 AND si.outstanding_amount > 0
           AND c.is_internal_customer = 0 {ci}
+          {cc}
           AND NOT EXISTS (
               SELECT 1 FROM `tabPayment Schedule` ps2
               WHERE ps2.parent=si.name AND ps2.parenttype='Sales Invoice'
@@ -210,6 +268,7 @@ def get_cash_projection(company=None):
           AND so.docstatus=1
           AND so.status IN ('To Deliver and Bill','To Bill','To Deliver')
           AND c.is_internal_customer = 0 {cs}
+          {cc}
         ORDER BY ps.due_date
     """, p, as_dict=True)
 
@@ -225,6 +284,7 @@ def get_cash_projection(company=None):
         WHERE so.docstatus=1
           AND so.status IN ('To Deliver and Bill','To Bill','To Deliver')
           AND c.is_internal_customer = 0 {cs}
+          {cc}
           AND NOT EXISTS (
               SELECT 1 FROM `tabPayment Schedule` ps2
               WHERE ps2.parent=so.name AND ps2.parenttype='Sales Order'
@@ -359,14 +419,16 @@ def _calculate_health_score(customer, company, today):
 def get_customer_health_scores(company=None):
     company = company or _default_company()
     today = getdate(nowdate())
+    cc = _customer_cond()
 
-    customers = frappe.db.sql("""
+    customers = frappe.db.sql(f"""
         SELECT DISTINCT si.customer, c.customer_name
         FROM `tabSales Invoice` si
         JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus=1 AND si.company=%(c)s
           AND si.posting_date >= %(cutoff)s
           AND c.is_internal_customer = 0
+          {cc}
         ORDER BY c.customer_name
     """, {"c": company, "cutoff": today - timedelta(days=365)}, as_dict=True)
 
@@ -439,6 +501,7 @@ def _health_score_breakdown(customer, company, today):
 def get_sales_projection(company=None):
     company = company or _default_company()
     today = getdate(nowdate())
+    cc = _customer_cond()
 
     # 8 weeks back for actuals (show last 4 + project next 4)
     weeks = []
@@ -467,6 +530,7 @@ def get_sales_projection(company=None):
                       AND so.transaction_date BETWEEN %s AND %s
                       AND c.is_internal_customer = 0
                       AND soi.item_group IN ({placeholders})
+                      {cc}
                 """, tuple([company, str(week["start"]), str(week["end"])] + groups))
             else:
                 # Projected: open SOs by expected delivery date
@@ -480,6 +544,7 @@ def get_sales_projection(company=None):
                       AND COALESCE(so.delivery_date, so.transaction_date) BETWEEN %s AND %s
                       AND c.is_internal_customer = 0
                       AND soi.item_group IN ({placeholders})
+                      {cc}
                 """, tuple([company, str(week["start"]), str(week["end"])] + groups))
             row["lines"][line_name] = flt(val[0][0]) if val else 0.0
 
@@ -521,6 +586,18 @@ def get_ar_aging_heatmap(company=None):
         "SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1"
     ))
 
+    # Build the set of allowed customers for this user (None = all)
+    allowed_customers = None
+    if not _is_manager():
+        user = frappe.session.user
+        escaped = frappe.db.escape(user)
+        like = frappe.db.escape(f"%{user}%")
+        rows = frappe.db.sql(f"""
+            SELECT name FROM `tabCustomer`
+            WHERE `_assign` LIKE {like} OR `account_manager` = {escaped}
+        """, as_dict=False)
+        allowed_customers = {r[0] for r in rows}
+
     BUCKET_KEYS = ["range1", "range2", "range3", "range4", "range5"]
     grid = []
     col_totals = {k: 0.0 for k in BUCKET_KEYS}
@@ -536,6 +613,9 @@ def get_ar_aging_heatmap(company=None):
             continue
         # Skip internal customers
         if row.get("party") in internal_customers:
+            continue
+        # User assignment filter
+        if allowed_customers is not None and row.get("party") not in allowed_customers:
             continue
 
         outstanding = flt(row.get("outstanding", 0))
