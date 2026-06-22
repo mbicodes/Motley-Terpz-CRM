@@ -44,3 +44,41 @@ def get_lead_permission_query_conditions(user):
     )
 
     return " AND ".join(conditions) if conditions else ""
+
+
+# ── CRM Deal ownership scoping ──────────────────────────────────────────────
+# Mirrors the lead rules: only the technical Administrator account sees every
+# deal. Every other user (System/Sales Manager roles included) sees only deals
+# they own (deal_owner) or that are assigned to them via Frappe's assignment
+# system (_assign). A deal owned/assigned to someone else is invisible.
+
+def get_deal_permission_query_conditions(user):
+    if not user:
+        user = frappe.session.user
+
+    if user == "Administrator":
+        return ""
+
+    escaped = frappe.db.escape(user)
+    like = frappe.db.escape(f"%{user}%")
+    return (
+        f"(`tabCRM Deal`.`deal_owner` = {escaped} "
+        f"OR `tabCRM Deal`.`_assign` LIKE {like})"
+    )
+
+
+def has_deal_permission(doc, ptype, user):
+    if not user:
+        user = frappe.session.user
+
+    if user == "Administrator":
+        return True
+
+    # Allow creating new deals; ownership is enforced once saved.
+    if ptype == "create":
+        return True
+
+    if doc.get("deal_owner") == user:
+        return True
+
+    return user in (doc.get("_assign") or "")

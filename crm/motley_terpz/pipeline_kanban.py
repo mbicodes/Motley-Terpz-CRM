@@ -6,6 +6,7 @@ Serves the four deal pipeline kanban boards:
 
 import frappe
 from frappe.utils import flt, nowdate
+from crm.motley_terpz.sales_intelligence import _is_manager
 
 
 # ── Stage definitions per pipeline ──────────────────────────────────────────
@@ -115,9 +116,21 @@ def get_pipeline_deals(pipeline):
     pipeline_type = cfg["pipeline_type"]
     fields = _deal_fields(pipeline)
 
+    # Restrict to the logged-in user's own deals. Only the Administrator sees
+    # every deal; every other user sees deals they own (deal_owner) or that are
+    # assigned to them via the Frappe assignment system (_assign).
+    or_filters = None
+    if not _is_manager():
+        user = frappe.session.user
+        or_filters = [
+            ["deal_owner", "=", user],
+            ["_assign", "like", f"%{user}%"],
+        ]
+
     deals = frappe.get_all(
         "CRM Deal",
         filters={"custom_pipeline_type": pipeline_type},
+        or_filters=or_filters,
         fields=fields,
         order_by="modified desc",
         limit=500,

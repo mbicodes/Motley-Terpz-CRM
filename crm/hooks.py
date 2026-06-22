@@ -131,12 +131,12 @@ before_uninstall = "crm.uninstall.before_uninstall"
 permission_query_conditions = {
 	# Motley Terpz: combines org-hierarchy check + Tolling access control
 	"CRM Lead": "crm.motley_terpz.permissions.get_lead_permission_query_conditions",
-	"CRM Deal": "crm.permissions.org_hierarchy.get_deal_permission_query_conditions",
+	"CRM Deal": "crm.motley_terpz.permissions.get_deal_permission_query_conditions",
 }
 
 has_permission = {
 	"CRM Lead": "crm.permissions.org_hierarchy.has_lead_permission",
-	"CRM Deal": "crm.permissions.org_hierarchy.has_deal_permission",
+	"CRM Deal": "crm.motley_terpz.permissions.has_deal_permission",
 }
 
 # DocType Class

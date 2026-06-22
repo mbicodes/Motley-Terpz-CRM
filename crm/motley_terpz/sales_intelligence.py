@@ -19,9 +19,6 @@ PRODUCT_LINES = {
     "Other":          ["Gummies", "Pre Rolls", "Copacking", "Caligreen", "Packaged goods"],
 }
 
-_MANAGER_ROLES = {"System Manager", "Sales Manager", "Accounts Manager"}
-
-
 def _default_company():
     default = frappe.defaults.get_global_default("company")
     if default:
@@ -33,17 +30,21 @@ def _default_company():
 # ── Permission helpers ─────────────────────────────────────────────────────────
 
 def _is_manager(user=None):
-    """Return True if user sees all data (admin or manager role)."""
+    """Return True only for the Administrator account, which bypasses all data
+    filtering and sees everything.
+
+    Every other user — regardless of role (Sales/System/Accounts Manager
+    included) — is filtered to only the data assigned to them: customers they
+    own/are assigned to (from won deals) and leads they own.
+    """
     if not user:
         user = frappe.session.user
-    if user == "Administrator":
-        return True
-    return bool(set(frappe.get_roles(user)) & _MANAGER_ROLES)
+    return user == "Administrator"
 
 
 def _customer_cond(user=None, alias="c"):
     """SQL AND clause limiting results to customers assigned to user.
-    Returns '' for admins/managers (no restriction)."""
+    Returns '' only for the Administrator (no restriction)."""
     if not user:
         user = frappe.session.user
     if _is_manager(user):
@@ -58,7 +59,7 @@ def _customer_cond(user=None, alias="c"):
 
 def _lead_cond(user=None):
     """SQL AND clause limiting CRM Leads to those owned by user.
-    Returns '' for admins/managers (no restriction)."""
+    Returns '' only for the Administrator (no restriction)."""
     if not user:
         user = frappe.session.user
     if _is_manager(user):
