@@ -6,6 +6,7 @@ Aggregates CRM Lead metrics per pipeline for Matt's health dashboard.
 import frappe
 from frappe.utils import flt, nowdate, add_days, getdate
 from crm.motley_terpz.sales_intelligence import _is_manager, _lead_cond
+from crm.motley_terpz.access import is_operations_only
 
 
 PIPELINES = [
@@ -45,6 +46,7 @@ def get_pipeline_health():
     total_new_week    = 0
 
     lc = _lead_cond()
+    lc_l = _lead_cond(alias="l")
 
     for p in PIPELINES:
         pipeline_value = PIPELINE_FILTER_MAP[p["key"]]
@@ -93,7 +95,7 @@ def get_pipeline_health():
             FROM `tabCRM Lead` l
             WHERE l.custom_pipeline = %(pipeline)s
               AND l.custom_ar_balance > 0
-              {lc}
+              {lc_l}
         """, {"pipeline": pipeline_value}, as_dict=True)
 
         pipeline_ar         = flt(ar_rows[0].total_ar) if ar_rows else 0.0
@@ -113,7 +115,7 @@ def get_pipeline_health():
             FROM `tabCRM Lead` l
             WHERE l.custom_pipeline = %(pipeline)s
               AND l.status = 'Active'
-              {lc}
+              {lc_l}
             ORDER BY l.custom_ar_balance DESC
             LIMIT 8
         """, {"pipeline": pipeline_value}, as_dict=True)
@@ -159,5 +161,16 @@ def get_pipeline_health():
         "total_no_contact":  total_no_contact,
         "new_this_week":     total_new_week,
     }
+
+    # Operations / Fulfillment may see pipeline & stage counts but not AR.
+    if is_operations_only():
+        for p in result["pipelines"]:
+            p["total_ar"] = 0.0
+            p["overdue_ar"] = 0.0
+            for lead in p.get("top_leads", []):
+                lead.pop("ar_balance", None)
+                lead.pop("ar_status", None)
+        result["summary"]["total_ar"] = 0.0
+        result["summary"]["total_ar_overdue"] = 0.0
 
     return result

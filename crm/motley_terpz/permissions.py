@@ -1,22 +1,27 @@
 """
 Motley Terpz — CRM Lead permission filter.
 
-Rules (non-admin users only):
+Rules (non-superuser users only):
   1. Org-hierarchy scoping (original CRM logic).
   2. Tolling pipeline hidden from users without the "CRM Tolling Access" role.
   3. Ownership scoping: each user sees only leads they own OR unassigned leads.
      A lead assigned to another user is invisible to everyone except that owner.
+
+Full cross-rep visibility is limited to the Administrator account and holders of
+the "Super Admin" role — see crm.motley_terpz.access.sees_all_data.
 """
 import frappe
+
+from crm.motley_terpz.access import sees_all_data
 
 
 def get_lead_permission_query_conditions(user):
     if not user:
         user = frappe.session.user
 
-    # Only the technical Administrator account bypasses all filters.
-    # System Manager role alone does NOT bypass — regular staff often hold it.
-    if user == "Administrator":
+    # Only the Administrator account and Super Admin role bypass all filters.
+    # Sales/System/Accounts Manager roles alone do NOT bypass.
+    if sees_all_data(user):
         return ""
 
     conditions = []
@@ -47,16 +52,16 @@ def get_lead_permission_query_conditions(user):
 
 
 # ── CRM Deal ownership scoping ──────────────────────────────────────────────
-# Mirrors the lead rules: only the technical Administrator account sees every
-# deal. Every other user (System/Sales Manager roles included) sees only deals
-# they own (deal_owner) or that are assigned to them via Frappe's assignment
-# system (_assign). A deal owned/assigned to someone else is invisible.
+# Mirrors the lead rules: only the Administrator account and Super Admin role
+# see every deal. Every other user (System/Sales Manager roles included) sees
+# only deals they own (deal_owner) or that are assigned to them via Frappe's
+# assignment system (_assign). A deal owned/assigned to someone else is invisible.
 
 def get_deal_permission_query_conditions(user):
     if not user:
         user = frappe.session.user
 
-    if user == "Administrator":
+    if sees_all_data(user):
         return ""
 
     escaped = frappe.db.escape(user)
@@ -71,7 +76,7 @@ def has_deal_permission(doc, ptype, user):
     if not user:
         user = frappe.session.user
 
-    if user == "Administrator":
+    if sees_all_data(user):
         return True
 
     # Allow creating new deals; ownership is enforced once saved.

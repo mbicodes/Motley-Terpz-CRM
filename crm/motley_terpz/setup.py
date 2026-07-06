@@ -15,7 +15,36 @@ def run_setup():
     create_motley_custom_fields()
     create_lead_statuses()
     create_pipeline_views()
+    create_super_admin_role()
     frappe.db.commit()
+
+
+# ── Super Admin role ───────────────────────────────────────────────────────────
+# Full cross-rep visibility role. Only the Administrator account and holders of
+# this role see every rep's leads/deals/dashboards (see motley_terpz.access).
+
+SUPER_ADMIN_ROLE = "Super Admin"
+SUPER_ADMIN_USERS = ["matt@motleyterpz.com"]
+
+
+def create_super_admin_role():
+    if not frappe.db.exists("Role", SUPER_ADMIN_ROLE):
+        frappe.get_doc({
+            "doctype": "Role",
+            "role_name": SUPER_ADMIN_ROLE,
+            "desk_access": 1,
+        }).insert(ignore_permissions=True)
+
+    # Assign to the designated super users (idempotent — skips if already held
+    # or if the user account doesn't exist on this site).
+    for user in SUPER_ADMIN_USERS:
+        if not frappe.db.exists("User", user):
+            continue
+        has_role = frappe.db.exists("Has Role", {"parent": user, "role": SUPER_ADMIN_ROLE})
+        if not has_role:
+            user_doc = frappe.get_doc("User", user)
+            user_doc.append("roles", {"role": SUPER_ADMIN_ROLE})
+            user_doc.save(ignore_permissions=True)
 
 
 # ── Custom Fields ──────────────────────────────────────────────────────────────

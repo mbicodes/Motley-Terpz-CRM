@@ -7,6 +7,8 @@ import frappe
 from frappe.utils import flt, getdate, nowdate, cint
 from datetime import timedelta
 
+from crm.motley_terpz.access import sees_all_data, sees_all_financials, is_operations_only
+
 
 # ── Product line → item_group mapping ─────────────────────────────────────────
 PRODUCT_LINES = {
@@ -30,24 +32,23 @@ def _default_company():
 # ── Permission helpers ─────────────────────────────────────────────────────────
 
 def _is_manager(user=None):
-    """Return True only for the Administrator account, which bypasses all data
-    filtering and sees everything.
+    """Return True for the Administrator account and holders of the Super Admin
+    role (Matt), which bypass all data filtering and see everything.
 
     Every other user — regardless of role (Sales/System/Accounts Manager
     included) — is filtered to only the data assigned to them: customers they
     own/are assigned to (from won deals) and leads they own.
     """
-    if not user:
-        user = frappe.session.user
-    return user == "Administrator"
+    return sees_all_data(user)
 
 
 def _customer_cond(user=None, alias="c"):
-    """SQL AND clause limiting results to customers assigned to user.
-    Returns '' only for the Administrator (no restriction)."""
+    """SQL AND clause limiting customer/AR results to those assigned to the
+    user. Returns '' (no restriction) for anyone with company-wide AR access
+    — Administrator, Super Admin, and Finance / Accounts Managers."""
     if not user:
         user = frappe.session.user
-    if _is_manager(user):
+    if sees_all_financials(user):
         return ""
     escaped = frappe.db.escape(user)
     like = frappe.db.escape(f"%{user}%")
@@ -57,18 +58,19 @@ def _customer_cond(user=None, alias="c"):
     )
 
 
-def _lead_cond(user=None):
-    """SQL AND clause limiting CRM Leads to those owned by user.
-    Returns '' only for the Administrator (no restriction)."""
+def _lead_cond(user=None, alias="`tabCRM Lead`"):
+    """SQL AND clause limiting CRM Leads to those owned or assigned (via
+    Frappe's standard Assign To / `_assign`) to user. Returns '' only for the
+    Administrator or the "Super Admin" role (Matt) — no restriction."""
     if not user:
         user = frappe.session.user
     if _is_manager(user):
         return ""
     escaped = frappe.db.escape(user)
+    like = frappe.db.escape(f"%{user}%")
     return (
-        f" AND (`tabCRM Lead`.`lead_owner` = {escaped}"
-        f" OR `tabCRM Lead`.`lead_owner` IS NULL"
-        f" OR `tabCRM Lead`.`lead_owner` = '')"
+        f" AND ({alias}.`lead_owner` = {escaped}"
+        f" OR {alias}.`_assign` LIKE {like})"
     )
 
 
@@ -132,6 +134,15 @@ def _ar_aging_summary(company, today, cust_cond=""):
 # ─────────────────────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_command_center(company=None):
+    # Operations / Fulfillment must not see AR balances, revenue or pricing.
+    if is_operations_only():
+        return {
+            "revenue_this_week": 0.0, "revenue_last_week": 0.0,
+            "revenue_trend": "up", "revenue_change_pct": 0.0,
+            "top_customers": [], "ar_aging": {}, "ar_total": 0.0,
+            "open_so_count": 0, "open_so_value": 0.0,
+            "recent_invoices": [], "recent_leads": [],
+        }
     company = company or _default_company()
     today = getdate(nowdate())
     week_start = today - timedelta(days=today.weekday())
@@ -214,6 +225,8 @@ def get_command_center(company=None):
 # ─────────────────────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_cash_projection(company=None):
+    if is_operations_only():
+        return {"rows": [], "totals": {}}
     today = getdate(nowdate())
     p = {"c": company} if company else {}
     ci = "AND si.company=%(c)s" if company else ""
@@ -418,6 +431,8 @@ def _calculate_health_score(customer, company, today):
 
 @frappe.whitelist()
 def get_customer_health_scores(company=None):
+    if is_operations_only():
+        return []
     company = company or _default_company()
     today = getdate(nowdate())
     cc = _customer_cond()
@@ -450,6 +465,8 @@ def get_customer_health_scores(company=None):
 
 @frappe.whitelist()
 def get_single_health_score(customer, company=None):
+    if is_operations_only():
+        return {"score": 0, "tier": "red", "breakdown": []}
     company = company or _default_company()
     today = getdate(nowdate())
     score = _calculate_health_score(customer, company, today)
@@ -500,6 +517,8 @@ def _health_score_breakdown(customer, company, today):
 # ─────────────────────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_sales_projection(company=None):
+    if is_operations_only():
+        return {"weeks": [], "product_lines": list(PRODUCT_LINES.keys()), "max_value": 0}
     company = company or _default_company()
     today = getdate(nowdate())
     cc = _customer_cond()
@@ -562,6 +581,8 @@ def get_sales_projection(company=None):
 # ─────────────────────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_ar_aging_heatmap(company=None):
+    if is_operations_only():
+        return {"grid": [], "col_totals": {}, "max_per_bucket": {}}
     from erpnext.accounts.report.accounts_receivable_summary.accounts_receivable_summary import (
         execute,
     )
@@ -587,9 +608,10 @@ def get_ar_aging_heatmap(company=None):
         "SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1"
     ))
 
-    # Build the set of allowed customers for this user (None = all)
+    # Build the set of allowed customers for this user (None = all).
+    # Finance/Accounts Managers get company-wide AR here too.
     allowed_customers = None
-    if not _is_manager():
+    if not sees_all_financials():
         user = frappe.session.user
         escaped = frappe.db.escape(user)
         like = frappe.db.escape(f"%{user}%")

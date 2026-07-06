@@ -268,8 +268,23 @@ const links = [
   },
 ]
 
+// ── Motley Terpz — Quotation Approvals (shown directly under Deals) ───────────
+const approvalsLinks = [
+  { label: '✅ Approvals', to: { name: 'ApprovalsQueue' } },
+]
+
+// ── Motley Terpz — Calculators ───────────────────────────────────────────────
+const calculatorLinks = [
+  { label: '📦 Co-Pack Calculator', to: { name: 'CoPackCalculator' } },
+  { label: '⚙️ Tolling Calculator', to: { name: 'TollingCalculator' } },
+]
+
 // ── Motley Terpz — Sales Intelligence links ──────────────────────────────────
 const salesIntelligenceLinks = [
+  { label: '🏆 Rep Leaderboard',  to: { name: 'RepLeaderboard'      } },
+  { label: '🎯 Goal vs Actual',   to: { name: 'GoalVsActual'        } },
+  { label: '🚚 Upcoming Deliveries', to: { name: 'UpcomingDeliveries' } },
+  { label: '📉 Purchase Insights', to: { name: 'PurchaseInsights'    } },
   { label: '📊 Command Center',   to: { name: 'SalesCommandCenter'  } },
   { label: '💵 Cash Projection',  to: { name: 'CashProjection'      } },
   { label: '🏥 Health Scores',    to: { name: 'CustomerHealthScores'} },
@@ -311,12 +326,26 @@ const allViews = computed(() => {
       opened: true,
       views: beforeCustomers,
     },
+    // Approvals — placed directly under Deals (no section header)
+    {
+      name: 'Approvals',
+      hideLabel: true,
+      opened: true,
+      views: approvalsLinks,
+    },
     // Sales Intelligence section
     {
       name: 'Sales Intelligence',
       hideLabel: false,
       opened: true,
       views: salesIntelligenceLinks,
+    },
+    // Calculators (Motley Terpz)
+    {
+      name: 'Calculators',
+      hideLabel: false,
+      opened: true,
+      views: calculatorLinks,
     },
     // Deal Pipelines (Motley Terpz kanban boards)
     {

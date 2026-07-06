@@ -94,6 +94,41 @@ const routes = [
   },
   // Motley Terpz — Sales Intelligence
   {
+    path: '/approvals',
+    name: 'ApprovalsQueue',
+    component: () => import('@/pages/ApprovalsQueue.vue'),
+  },
+  {
+    path: '/copack-calculator',
+    name: 'CoPackCalculator',
+    component: () => import('@/pages/CoPackCalculator.vue'),
+  },
+  {
+    path: '/tolling-calculator',
+    name: 'TollingCalculator',
+    component: () => import('@/pages/TollingCalculator.vue'),
+  },
+  {
+    path: '/rep-leaderboard',
+    name: 'RepLeaderboard',
+    component: () => import('@/pages/RepLeaderboard.vue'),
+  },
+  {
+    path: '/goal-vs-actual',
+    name: 'GoalVsActual',
+    component: () => import('@/pages/GoalVsActual.vue'),
+  },
+  {
+    path: '/upcoming-deliveries',
+    name: 'UpcomingDeliveries',
+    component: () => import('@/pages/UpcomingDeliveries.vue'),
+  },
+  {
+    path: '/purchase-insights',
+    name: 'PurchaseInsights',
+    component: () => import('@/pages/PurchaseInsights.vue'),
+  },
+  {
     path: '/sales-command-center',
     name: 'SalesCommandCenter',
     component: () => import('@/pages/SalesCommandCenter.vue'),

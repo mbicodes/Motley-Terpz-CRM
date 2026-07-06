@@ -8,9 +8,18 @@ from frappe.utils import flt, getdate, nowdate, get_first_day, get_last_day, add
 from datetime import timedelta
 import datetime
 
+from crm.motley_terpz.access import is_operations_only
+
+
+def _block_operations():
+    """Operations / Fulfillment must not see AR balances, revenue or pricing."""
+    if is_operations_only():
+        frappe.throw("Not permitted", frappe.PermissionError)
+
 
 @frappe.whitelist()
 def get_customer_dashboard(customer):
+    _block_operations()
     if not frappe.has_permission("Customer", "read", customer):
         frappe.throw("Not permitted", frappe.PermissionError)
 
@@ -216,6 +225,7 @@ def get_customer_dashboard(customer):
 
 @frappe.whitelist()
 def get_sales_orders(customer, page=1):
+    _block_operations()
     if not frappe.has_permission("Sales Order", "read"):
         frappe.throw("Not permitted", frappe.PermissionError)
     import math
@@ -277,6 +287,7 @@ def get_delivery_notes(customer, page=1):
 
 @frappe.whitelist()
 def get_customer_invoices(customer, page=1):
+    _block_operations()
     if not frappe.has_permission("Sales Invoice", "read"):
         frappe.throw("Not permitted", frappe.PermissionError)
     import math
