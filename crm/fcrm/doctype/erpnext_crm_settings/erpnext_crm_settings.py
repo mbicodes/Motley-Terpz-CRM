@@ -53,6 +53,7 @@ class ERPNextCRMSettings(Document):
 			self.add_quotation_to_option()
 			self.create_custom_fields()
 			self.create_crm_form_script()
+			self.create_quotation_client_script()
 
 	def validate_if_erpnext_installed(self):
 		if not self.is_erpnext_in_different_site:
@@ -121,6 +122,24 @@ class ERPNextCRMSettings(Document):
 					"is_standard": 1,
 				}
 			).insert()
+
+	def create_quotation_client_script(self):
+		if self.is_erpnext_in_different_site:
+			return
+		script = get_quotation_client_script()
+		if frappe.db.exists("Client Script", {"dt": "Quotation", "name": "Fetch CRM Deal Products"}):
+			frappe.db.set_value("Client Script", "Fetch CRM Deal Products", {"script": script, "enabled": 1})
+		else:
+			frappe.get_doc(
+				{
+					"doctype": "Client Script",
+					"__newname": "Fetch CRM Deal Products",
+					"dt": "Quotation",
+					"view": "Form",
+					"script": script,
+					"enabled": 1,
+				}
+			).insert(ignore_permissions=True)
 
 	@frappe.whitelist()
 	def reset_erpnext_form_script(self):
@@ -217,6 +236,80 @@ def get_quotation_url(crm_deal: str, organization: str | None = None):
 	query_string = "&".join(f"{key}={value}" for key, value in params.items() if value is not None)
 
 	return f"{base_url}?{query_string}"
+
+
+@frappe.whitelist()
+def get_deal_products(crm_deal: str):
+	"""Return the products of a CRM Deal mapped for the Quotation items table.
+
+	Resolves each deal product to an ERPNext Item (by CRM Product's product_code
+	matching Item's name/item_code, else by product name matching item_name);
+	unresolved products are returned as free-form rows (item_name only).
+	"""
+	deal = frappe.get_doc("CRM Deal", crm_deal)
+	deal.check_permission("read")
+
+	products = []
+	for row in deal.products or []:
+		item_code = None
+		if row.product_code:
+			crm_product_code = frappe.db.get_value("CRM Product", row.product_code, "product_code")
+			if crm_product_code and frappe.db.exists("Item", crm_product_code):
+				item_code = crm_product_code
+		if not item_code and row.product_name:
+			item_code = frappe.db.get_value("Item", {"item_name": row.product_name}, "name")
+
+		products.append(
+			{
+				"item_code": item_code,
+				"item_name": row.product_name,
+				"qty": row.qty or 1,
+				"rate": row.rate,
+				"discount_percentage": row.discount_percentage,
+			}
+		)
+
+	return products
+
+
+def get_quotation_client_script():
+	return """frappe.ui.form.on('Quotation', {
+	onload(frm) {
+		if (!frm.is_new() || !frm.doc.crm_deal) return;
+		if ((frm.doc.items || []).some(d => d.item_code || d.item_name)) return;
+
+		frappe.call({
+			method: 'crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.get_deal_products',
+			args: { crm_deal: frm.doc.crm_deal },
+		}).then(async (r) => {
+			const products = r.message || [];
+			if (!products.length) return;
+
+			frm.clear_table('items');
+			for (const p of products) {
+				const row = frm.add_child('items');
+				if (p.item_code) {
+					await frappe.model.set_value(row.doctype, row.name, 'item_code', p.item_code);
+				} else {
+					await frappe.model.set_value(row.doctype, row.name, 'item_name', p.item_name);
+					await frappe.model.set_value(row.doctype, row.name, 'description', p.item_name);
+				}
+				await frappe.model.set_value(row.doctype, row.name, 'qty', p.qty || 1);
+				if (p.rate) {
+					await frappe.model.set_value(row.doctype, row.name, 'price_list_rate', p.rate);
+				}
+				if (p.discount_percentage) {
+					await frappe.model.set_value(row.doctype, row.name, 'discount_percentage', p.discount_percentage);
+				} else if (p.rate) {
+					await frappe.model.set_value(row.doctype, row.name, 'rate', p.rate);
+				}
+			}
+			frm.refresh_field('items');
+			frappe.show_alert({ message: __('Items fetched from CRM Deal'), indicator: 'green' });
+		});
+	}
+});
+"""
 
 
 def create_prospect_in_remote_site(crm_deal, erpnext_crm_settings):
