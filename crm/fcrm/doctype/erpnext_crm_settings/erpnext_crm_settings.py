@@ -37,6 +37,8 @@ class ERPNextCRMSettings(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		from crm.fcrm.doctype.crm_product_sync_issue.crm_product_sync_issue import CRMProductSyncIssue
+
 		api_key: DF.Data | None
 		api_secret: DF.Password | None
 		create_customer_on_status_change: DF.Check
@@ -45,15 +47,23 @@ class ERPNextCRMSettings(Document):
 		erpnext_company: DF.Data | None
 		erpnext_site_url: DF.Data | None
 		is_erpnext_in_different_site: DF.Check
+		sync_issues: DF.Table[CRMProductSyncIssue]
 	# end: auto-generated types
 
 	def validate(self):
+		old = self.get_doc_before_save()
+		was_active = bool(old and old.enabled and not old.is_erpnext_in_different_site)
 		if self.enabled:
 			self.validate_if_erpnext_installed()
 			self.add_quotation_to_option()
 			self.create_custom_fields()
 			self.create_crm_form_script()
 			self.create_quotation_client_script()
+			self.grant_item_access_to_sales_roles()
+			if not was_active and not self.is_erpnext_in_different_site:
+				from crm.fcrm.doctype.crm_product.reconcile_job import enqueue_reconciliation
+
+				enqueue_reconciliation()
 
 	def validate_if_erpnext_installed(self):
 		if not self.is_erpnext_in_different_site:
@@ -94,9 +104,43 @@ class ERPNextCRMSettings(Document):
 					"label": "Customer in ERPNext",
 					"insert_after": "lead_name",
 				}
-			]
+			],
+			"CRM Product": [
+				{
+					"fieldname": "erpnext_item_code",
+					"fieldtype": "Data",
+					"label": "Item Code in ERPNext",
+					"read_only": 1,
+					"insert_after": "product_code",
+				}
+			],
 		}
+		if frappe.db.exists("DocType", "Item"):
+			custom_fields["Item"] = [
+				{
+					"fieldname": "crm_product_code",
+					"fieldtype": "Data",
+					"label": "CRM Product",
+					"read_only": 1,
+					"no_copy": 1,
+					"insert_after": "item_code",
+				}
+			]
 		_create_custom_fields(custom_fields, ignore_validate=True)
+
+	def grant_item_access_to_sales_roles(self):
+		if self.is_erpnext_in_different_site:
+			return
+		if not frappe.db.exists("DocType", "Item"):
+			return
+		from frappe.permissions import add_permission, update_permission_property
+
+		for role in ("Sales User", "Sales Manager"):
+			if frappe.db.exists("Custom DocPerm", {"parent": "Item", "role": role, "permlevel": 0}):
+				continue
+			add_permission("Item", role, 0, "write")
+			for prop in ("create", "delete", "share", "print", "report", "export"):
+				update_permission_property("Item", role, 0, prop, 1)
 
 	def create_custom_fields_in_remote_site(self):
 		client = get_erpnext_site_client(self)
@@ -163,6 +207,44 @@ class ERPNextCRMSettings(Document):
 	@frappe.whitelist()
 	def is_erpnext_installed(self):
 		return _is_erpnext_installed()
+
+	@frappe.whitelist()
+	def run_product_sync(self):
+		if not self.enabled or self.is_erpnext_in_different_site:
+			frappe.throw(_("ERPNext integration must be enabled on the same site"))
+		from crm.fcrm.doctype.crm_product.reconcile_job import enqueue_reconciliation
+
+		enqueue_reconciliation()
+		return True
+
+
+@frappe.whitelist()
+def get_open_sync_issues():
+	if not frappe.has_permission("CRM Product", "read"):
+		return []
+	settings = frappe.get_single("ERPNext CRM Settings")
+	return [
+		{
+			"name": issue.name,
+			"product": issue.product,
+			"kind": issue.kind,
+			"detail": issue.detail,
+			"detected_on": issue.detected_on,
+		}
+		for issue in settings.sync_issues
+		if not issue.dismissed
+	]
+
+
+@frappe.whitelist()
+def dismiss_sync_issue(issue_name: str):
+	settings = frappe.get_single("ERPNext CRM Settings")
+	for issue in settings.sync_issues:
+		if issue.name == issue_name:
+			issue.dismissed = 1
+			settings.save()
+			return True
+	return False
 
 
 def get_erpnext_site_client(erpnext_crm_settings):

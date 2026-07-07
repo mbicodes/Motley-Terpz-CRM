@@ -49,7 +49,8 @@
           erpnextCRMSettingsResource.isERPNextInstalled.loading ||
           (erpnextCRMSettingsResource.getExternalCompanies.loading &&
             !erpnextCRMSettingsResource.getExternalCompanies.fetched) ||
-          !erpnextCRMSettingsResource.get.fetched
+          !erpnextCRMSettingsResource.get.fetched ||
+          !erpnextCRMSettingsResource.isERPNextInstalled.fetched
         "
         class="flex items-center justify-center mt-[35%]"
       >
@@ -58,9 +59,28 @@
       <div v-else class="h-full">
         <div v-if="erpnextCRMSettingsResource.doc.enabled">
           <div
-            v-if="!erpnextCRMSettingsResource.isERPNextInstalled.data"
-            class="space-y-4"
+            v-if="canUseLocalERPNext"
+            class="flex items-center justify-between pb-4"
           >
+            <div class="flex flex-col">
+              <div class="text-p-base font-medium text-ink-gray-7">
+                {{ __('Connect to a different ERPNext site') }}
+              </div>
+              <div class="text-p-sm text-ink-gray-5">
+                {{
+                  __(
+                    'Turn on to connect an external ERPNext site instead of this one',
+                  )
+                }}
+              </div>
+            </div>
+            <Switch v-model="isExternalSite" size="sm" />
+          </div>
+          <div
+            v-if="canUseLocalERPNext"
+            class="h-px border-t mb-4 border-outline-gray-modals"
+          />
+          <div v-if="isExternalSite" class="space-y-4">
             <FormControl
               v-model="erpnextCRMSettingsResource.doc.erpnext_site_url"
               :label="__('Site URL')"
@@ -93,10 +113,7 @@
               />
             </div>
             <Button
-              v-if="
-                !erpnextCRMSettingsResource.isERPNextInstalled.data &&
-                areSiteSettingsChanged
-              "
+              v-if="isExternalSite && areSiteSettingsChanged"
               variant="subtle"
               :disabled="
                 erpnextCRMSettingsResource.getExternalCompanies.loading ||
@@ -111,17 +128,11 @@
             </Button>
           </div>
           <div
-            v-if="
-              !erpnextCRMSettingsResource.isERPNextInstalled.data &&
-              isUpdateButtonVisible
-            "
+            v-if="isExternalSite && isUpdateButtonVisible"
             class="h-px border-t my-4 border-outline-gray-modals"
           />
           <div
-            v-if="
-              erpnextCRMSettingsResource.isERPNextInstalled.data ||
-              isUpdateButtonVisible
-            "
+            v-if="!isExternalSite || isUpdateButtonVisible"
             class="-mx-2"
           >
             <div class="flex items-center justify-between pb-3 px-2">
@@ -135,7 +146,7 @@
               </div>
               <div class="w-48">
                 <Autocomplete
-                  v-if="!erpnextCRMSettingsResource.isERPNextInstalled.data"
+                  v-if="isExternalSite"
                   :model-value="erpnextCRMSettingsResource.doc.erpnext_company"
                   :options="
                     erpnextCRMSettingsResource.getExternalCompanies.data?.map(
@@ -177,6 +188,34 @@
                   class="w-48 flex-shrink-0"
                 />
               </div>
+            </div>
+            <div
+              v-if="!isExternalSite"
+              class="h-px border-t border-outline-gray-modals"
+            />
+            <div
+              v-if="!isExternalSite"
+              class="flex items-center justify-between py-3 px-2"
+            >
+              <div class="flex flex-col">
+                <div class="text-p-base font-medium text-ink-gray-7 truncate">
+                  {{ __('Sync Products with ERPNext') }}
+                </div>
+                <div class="text-p-sm text-ink-gray-5 truncate">
+                  {{
+                    __(
+                      'Bidirectional sync of existing CRM Products and ERPNext Items. Runs in the background.',
+                    )
+                  }}
+                </div>
+              </div>
+              <Button
+                variant="subtle"
+                :loading="erpnextCRMSettingsResource.runProductSync.loading"
+                @click="runProductSync"
+              >
+                {{ __('Sync Now') }}
+              </Button>
             </div>
             <div class="h-px border-t border-outline-gray-modals" />
             <div class="flex items-center justify-between py-3 px-2">
@@ -277,7 +316,7 @@ import {
   Tooltip,
 } from 'frappe-ui'
 import SettingsLayoutBase from '@/components/Layouts/SettingsLayoutBase.vue'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Link from '../Controls/Link.vue'
 import { globalStore } from '@/stores/global'
 
@@ -296,6 +335,15 @@ const erpnextCRMSettingsResource = createDocumentResource({
         }
       },
     },
+    runProductSync: {
+      method: 'run_product_sync',
+      onSuccess() {
+        toast.success(__('Product sync started. Items will appear shortly.'))
+      },
+      onError(error) {
+        toast.error(error?.messages?.[0] || __('Failed to start sync'))
+      },
+    },
   },
   setValue: {
     onSuccess() {
@@ -308,11 +356,24 @@ const erpnextCRMSettingsResource = createDocumentResource({
   },
 })
 
+// Whether ERPNext is available on this same site. When it is, the user is free
+// to choose between the local company and connecting to an external site;
+// when it is not, the external-site connection is the only option.
+const canUseLocalERPNext = computed(
+  () => !!erpnextCRMSettingsResource.isERPNextInstalled.data,
+)
+
+// User-controlled toggle for which configuration view to show:
+//  - true  -> external ERPNext site form (Site URL / API Key / API Secret)
+//  - false -> local company selection
+// Initialized in onMounted from the saved `is_erpnext_in_different_site` flag.
+const isExternalSite = ref(false)
+
 const isDisabled = computed(() => {
   const data = erpnextCRMSettingsResource.doc
 
   const isSiteConfigValid =
-    !erpnextCRMSettingsResource.isERPNextInstalled.data &&
+    isExternalSite.value &&
     (!data.erpnext_site_url || !data.api_key || !data.api_secret)
 
   return isSiteConfigValid || !data.erpnext_company
@@ -329,9 +390,9 @@ const isDisableButtonVisible = computed(() => {
 })
 
 const isUpdateButtonVisible = computed(() => {
-  const isERPNextInstalled = erpnextCRMSettingsResource.isERPNextInstalled.data
   return (
-    (isDisableButtonVisible.value && !isERPNextInstalled) || isERPNextInstalled
+    (isDisableButtonVisible.value && isExternalSite.value) ||
+    !isExternalSite.value
   )
 })
 
@@ -370,8 +431,7 @@ const saveSettings = async () => {
   updateFields(
     {
       enabled: erpnextCRMSettingsResource.doc.enabled,
-      is_erpnext_in_different_site:
-        !erpnextCRMSettingsResource.isERPNextInstalled.data,
+      is_erpnext_in_different_site: isExternalSite.value,
       create_customer_on_status_change:
         erpnextCRMSettingsResource.doc.create_customer_on_status_change,
       erpnext_company: erpnextCRMSettingsResource.doc.erpnext_company,
@@ -382,7 +442,7 @@ const saveSettings = async () => {
     },
     {
       onSuccess: async () => {
-        if (!erpnextCRMSettingsResource.isERPNextInstalled.data) {
+        if (isExternalSite.value) {
           await erpnextCRMSettingsResource.getExternalCompanies.submit()
         }
         await erpnextCRMSettingsResource.get.reload()
@@ -415,14 +475,17 @@ const toggleEnable = (value) => {
   }
 }
 
+function runProductSync() {
+  erpnextCRMSettingsResource.runProductSync.submit()
+}
+
 function verifyConnection() {
   if (!validateSiteConnection()) return
 
   updateFields(
     {
       enabled: erpnextCRMSettingsResource.doc.enabled,
-      is_erpnext_in_different_site:
-        !erpnextCRMSettingsResource.isERPNextInstalled.data,
+      is_erpnext_in_different_site: isExternalSite.value,
       erpnext_site_url: erpnextCRMSettingsResource.doc.erpnext_site_url,
       api_key: erpnextCRMSettingsResource.doc.api_key,
       api_secret: erpnextCRMSettingsResource.doc.api_secret,
@@ -430,7 +493,7 @@ function verifyConnection() {
     {
       onSuccess: () => {
         toast.success(__('Site connection validated'))
-        if (!erpnextCRMSettingsResource.isERPNextInstalled.data) {
+        if (isExternalSite.value) {
           erpnextCRMSettingsResource.getExternalCompanies.submit()
         }
       },
@@ -439,7 +502,7 @@ function verifyConnection() {
 }
 
 const validateSiteConnection = () => {
-  if (erpnextCRMSettingsResource.isERPNextInstalled.data) return true
+  if (!isExternalSite.value) return true
 
   const { erpnext_site_url, api_key, api_secret } =
     erpnextCRMSettingsResource.doc
@@ -517,5 +580,11 @@ onMounted(async () => {
       }
     },
   })
+
+  // Initialize the view toggle from the saved setting. If ERPNext is not
+  // available locally, the external-site view is the only usable option.
+  isExternalSite.value = canUseLocalERPNext.value
+    ? !!erpnextCRMSettingsResource.doc.is_erpnext_in_different_site
+    : true
 })
 </script>
