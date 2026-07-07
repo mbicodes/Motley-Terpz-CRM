@@ -202,6 +202,11 @@ doc_events = {
 		"on_update": ["crm.integrations.erpnext.doc_share.on_update"],
 		"on_trash": ["crm.integrations.erpnext.doc_share.on_trash"],
 	},
+	# Auto-update linked CRM Deal status from Quotation lifecycle
+	"Quotation": {
+		"on_submit": ["crm.integrations.erpnext.quotation.on_submit"],
+		"on_change": ["crm.integrations.erpnext.quotation.on_change"],
+	},
 }
 
 # Scheduled Tasks
