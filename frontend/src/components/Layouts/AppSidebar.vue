@@ -29,7 +29,7 @@
           </template>
         </SidebarLink>
       </div>
-      <div v-for="view in allViews" :key="view.label">
+      <div v-for="view in allViews" :key="view.name">
         <div class="mx-2 my-1.5" />
         <CollapsibleSection
           :label="view.name"
@@ -347,28 +347,9 @@ const allViews = computed(() => {
       opened: true,
       views: calculatorLinks,
     },
-    // Deal Pipelines (Motley Terpz kanban boards)
-    {
-      name: 'Deal Pipelines',
-      hideLabel: false,
-      opened: true,
-      views: dealPipelineLinks,
-    },
-    // Customers section (Motley Terpz pipelines) — between Deals and Contacts
-    {
-      name: 'Customers',
-      hideLabel: false,
-      opened: true,
-      views: customerPipelineLinks,
-    },
-    {
-      name: '_after_customers',
-      hideLabel: true,
-      opened: true,
-      views: afterCustomers,
-    },
   ]
 
+  // Order under Calculators: Lead Pipelines → Deal Pipelines → Customers
   if (getPublicViews().length) {
     _views.push({
       name: 'Lead Pipelines',
@@ -376,6 +357,30 @@ const allViews = computed(() => {
       views: parseView(getPublicViews()),
     })
   }
+
+  _views.push(
+    // Deal Pipelines (Motley Terpz kanban boards)
+    {
+      name: 'Deal Pipelines',
+      hideLabel: false,
+      opened: true,
+      views: dealPipelineLinks,
+    },
+    // Customers section (Motley Terpz pipelines)
+    {
+      name: 'Customers',
+      hideLabel: false,
+      opened: true,
+      views: customerPipelineLinks,
+    },
+    // Contacts, Organizations, Notes, Tasks, Calendar, Call Logs — below Customers
+    {
+      name: '_after_customers',
+      hideLabel: true,
+      opened: true,
+      views: afterCustomers,
+    },
+  )
 
   if (getPinnedViews().length) {
     _views.push({
