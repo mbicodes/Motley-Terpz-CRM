@@ -5,7 +5,88 @@ from frappe import _
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 from frappe.desk.form.assign_to import set_status
 from frappe.model import no_value_fields
-from frappe.model.delete_doc import get_dynamic_linked_docs, get_linked_docs
+try:
+	from frappe.model.delete_doc import get_dynamic_linked_docs, get_linked_docs
+except ImportError:
+	# Frappe v15 compatibility: these helpers only exist in Frappe v16+.
+	# Fallbacks mirror v15's check_if_doc_is_linked / check_if_doc_is_dynamically_linked,
+	# collecting linked docs instead of raising LinkExistsError.
+	def get_linked_docs(doc):
+		from frappe.model.rename_doc import get_link_fields
+
+		linked_docs = []
+		ignored_doctypes = set(frappe.get_hooks("ignore_links_on_delete"))
+
+		for lf in get_link_fields(doc.doctype):
+			link_dt, link_field, issingle = lf["parent"], lf["fieldname"], lf["issingle"]
+			if link_dt in ignored_doctypes:
+				continue
+
+			try:
+				meta = frappe.get_meta(link_dt)
+			except frappe.DoesNotExistError:
+				frappe.clear_last_message()
+				continue
+
+			if issingle:
+				if frappe.db.get_single_value(link_dt, link_field) == doc.name:
+					linked_docs.append({"reference_doctype": link_dt, "reference_docname": link_dt})
+				continue
+
+			fields = ["name", "docstatus"]
+			if meta.istable:
+				fields.extend(["parent", "parenttype"])
+
+			for item in frappe.db.get_values(link_dt, {link_field: doc.name}, fields, as_dict=True):
+				item_parent = getattr(item, "parent", None)
+				linked_parent_doctype = item.parenttype if item_parent else link_dt
+
+				if linked_parent_doctype in ignored_doctypes:
+					continue
+
+				if link_dt == doc.doctype and (item_parent or item.name) == doc.name:
+					continue
+
+				linked_docs.append(
+					{
+						"reference_doctype": linked_parent_doctype,
+						"reference_docname": item_parent or item.name,
+					}
+				)
+
+		return linked_docs
+
+	def get_dynamic_linked_docs(doc):
+		from frappe.model.dynamic_links import get_dynamic_link_map
+
+		linked_docs = []
+		ignored_doctypes = set(frappe.get_hooks("ignore_links_on_delete"))
+
+		for df in get_dynamic_link_map().get(doc.doctype, []):
+			if df.parent in ignored_doctypes:
+				continue
+
+			meta = frappe.get_meta(df.parent)
+			if meta.issingle:
+				refdoc = frappe.db.get_singles_dict(df.parent)
+				if refdoc.get(df.options) == doc.doctype and refdoc.get(df.fieldname) == doc.name:
+					linked_docs.append({"reference_doctype": df.parent, "reference_docname": df.parent})
+			else:
+				fields = ["name"]
+				if meta.istable:
+					fields.extend(["parent", "parenttype"])
+
+				for refdoc in frappe.db.get_values(
+					df.parent, {df.options: doc.doctype, df.fieldname: doc.name}, fields, as_dict=True
+				):
+					linked_docs.append(
+						{
+							"reference_doctype": refdoc.parenttype if meta.istable else df.parent,
+							"reference_docname": refdoc.parent if meta.istable else refdoc.name,
+						}
+					)
+
+		return linked_docs
 from frappe.model.document import get_controller
 from frappe.utils import make_filter_tuple
 from pypika import Criterion
