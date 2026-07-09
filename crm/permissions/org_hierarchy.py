@@ -77,6 +77,12 @@ def _has_permission(doc, ptype, user, doctype: str) -> bool | None:
 	if user == "Administrator":
 		return True
 
+	# New/unsaved documents have no name yet, so the ownership lookup below
+	# would match nothing and wrongly block every non-superuser from creating
+	# records. Allow creation; ownership scoping applies once the doc is saved.
+	if ptype == "create" or not doc.get("name"):
+		return True
+
 	roles = frappe.get_roles(user)
 	if "System Manager" in roles:
 		return True
