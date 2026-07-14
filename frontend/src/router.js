@@ -154,6 +154,11 @@ const routes = [
     component: () => import('@/pages/ArAgingHeatmap.vue'),
   },
   {
+    path: '/customer-segmentation',
+    name: 'CustomerSegmentation',
+    component: () => import('@/pages/CustomerSegmentation.vue'),
+  },
+  {
     path: '/customer-dashboard/:customerId',
     name: 'CustomerDashboard',
     component: () => import('@/pages/CustomerDashboard.vue'),

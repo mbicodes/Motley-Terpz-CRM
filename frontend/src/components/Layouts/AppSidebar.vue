@@ -290,6 +290,7 @@ const salesIntelligenceLinks = [
   { label: '🏥 Health Scores',    to: { name: 'CustomerHealthScores'} },
   { label: '📈 Sales Projection', to: { name: 'SalesProjection'     } },
   { label: '🔥 AR Aging',         to: { name: 'ArAgingHeatmap'      } },
+  { label: '👥 Customer Segmentation', to: { name: 'CustomerSegmentation' } },
 ]
 
 // ── Motley Terpz — deal pipeline kanban links ────────────────────────────────
