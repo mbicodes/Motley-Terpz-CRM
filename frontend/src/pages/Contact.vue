@@ -96,6 +96,13 @@
                 />
                 <Button
                   v-if="canDelete"
+                  :label="__('Merge')"
+                  size="sm"
+                  iconLeft="git-merge"
+                  @click="showMergeModal = true"
+                />
+                <Button
+                  v-if="canDelete"
                   :label="__('Delete')"
                   theme="red"
                   size="sm"
@@ -167,9 +174,17 @@
     :docname="contact.doc.name"
     name="Contacts"
   />
+  <MergeModal
+    v-if="showMergeModal"
+    v-model="showMergeModal"
+    doctype="Contact"
+    :primaryName="contact.doc.name"
+    :primaryTitle="title"
+  />
 </template>
 
 <script setup>
+import MergeModal from '@/components/Modals/MergeModal.vue'
 import ErrorPage from '@/components/ErrorPage.vue'
 import Resizer from '@/components/Resizer.vue'
 import Icon from '@/components/Icon.vue'
@@ -239,6 +254,7 @@ const {
 } = useDocument('Contact', props.contactId)
 
 const canDelete = computed(() => permissions.data?.permissions?.delete || false)
+const showMergeModal = ref(false)
 
 onMounted(async () => {
   if (contact.doc) await triggerOnRender()

@@ -297,6 +297,7 @@ const calculatorLinks = [
 
 // ── Motley Terpz — Sales Intelligence links ──────────────────────────────────
 const salesIntelligenceLinks = [
+  { label: '☀️ My Day',           to: { name: 'MyDay'               } },
   { label: '🏆 Rep Leaderboard',  to: { name: 'RepLeaderboard'      } },
   { label: '🎯 Goal vs Actual',   to: { name: 'GoalVsActual'        } },
   { label: '🚚 Upcoming Deliveries', to: { name: 'UpcomingDeliveries' } },

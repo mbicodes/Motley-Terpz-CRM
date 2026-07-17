@@ -165,6 +165,14 @@
 
                 <Button
                   v-if="canDelete"
+                  :tooltip="__('Merge with another Lead')"
+                  variant="subtle"
+                  icon="git-merge"
+                  @click="showMergeModal = true"
+                />
+
+                <Button
+                  v-if="canDelete"
                   :tooltip="__('Delete')"
                   variant="subtle"
                   theme="red"
@@ -231,9 +239,17 @@
     doctype="CRM Lead"
     :document="document"
   />
+  <MergeModal
+    v-if="showMergeModal"
+    v-model="showMergeModal"
+    doctype="CRM Lead"
+    :primaryName="leadId"
+    :primaryTitle="doc.lead_name || leadId"
+  />
 </template>
 <script setup>
 import DeleteLinkedDocModal from '@/components/DeleteLinkedDocModal.vue'
+import MergeModal from '@/components/Modals/MergeModal.vue'
 import ErrorPage from '@/components/ErrorPage.vue'
 import Icon from '@/components/Icon.vue'
 import Resizer from '@/components/Resizer.vue'
@@ -308,6 +324,7 @@ const activities = ref(null)
 const errorTitle = ref('')
 const errorMessage = ref('')
 const showDeleteLinkedDocModal = ref(false)
+const showMergeModal = ref(false)
 const showConvertToDealModal = ref(false)
 const showFilesUploader = ref(false)
 

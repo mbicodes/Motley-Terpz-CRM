@@ -124,6 +124,14 @@ before_uninstall = "crm.uninstall.before_uninstall"
 
 # notification_config = "crm.notifications.get_notification_config"
 
+# Fixtures
+# --------
+# Motley Terpz: field-layout de-clutter pass (Quick Entry / Side Panel
+# layouts for Lead, Deal, Call Log) — keeps the change across migrations.
+fixtures = [
+	{"dt": "CRM Fields Layout", "filters": [["dt", "in", ["CRM Lead", "CRM Deal", "CRM Call Log"]]]},
+]
+
 # Permissions
 # -----------
 # Permissions evaluated in scripted ways
