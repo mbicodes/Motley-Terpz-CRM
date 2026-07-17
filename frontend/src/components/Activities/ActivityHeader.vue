@@ -132,6 +132,25 @@ const defaultActions = computed(() => {
       onClick: () => props.modalRef.showEvent(),
     },
     {
+      icon: h(EventIcon, { class: 'h-4 w-4' }),
+      label: __('Log a Meeting'),
+      onClick: () => {
+        // Meeting that already happened: prefill the last half hour,
+        // no name → EventModal opens in create mode with these values.
+        const pad = (n) => String(n).padStart(2, '0')
+        const fmt = (d) =>
+          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+          `${pad(d.getHours())}:${pad(d.getMinutes())}:00`
+        const now = new Date()
+        const start = new Date(now.getTime() - 30 * 60 * 1000)
+        props.modalRef.showEvent({
+          starts_on: fmt(start),
+          ends_on: fmt(now),
+          subject: __('Meeting'),
+        })
+      },
+    },
+    {
       icon: h(PhoneIcon, { class: 'h-4 w-4' }),
       label: __('Log a Call'),
       onClick: () => props.modalRef.createCallLog(),

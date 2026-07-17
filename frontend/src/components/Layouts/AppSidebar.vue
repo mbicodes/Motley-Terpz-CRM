@@ -28,6 +28,22 @@
             />
           </template>
         </SidebarLink>
+        <!-- Motley Terpz: quick jump to the ERP desk (new tab on ctrl/cmd-click) -->
+        <a
+          href="/app"
+          class="mx-2 my-[1.5px] flex h-7 cursor-pointer items-center rounded px-2 text-ink-gray-7 duration-300 ease-in-out hover:bg-surface-gray-2 focus:outline-none"
+          :title="__('Open ERP')"
+        >
+          <span class="grid h-5 w-6 flex-shrink-0 place-items-center">
+            <FeatherIcon name="external-link" class="size-4 text-ink-gray-7" />
+          </span>
+          <span
+            v-if="!isSidebarCollapsed"
+            class="ml-2 flex-1 flex-shrink-0 truncate text-base duration-300 ease-in-out"
+          >
+            {{ __('Open ERP') }}
+          </span>
+        </a>
       </div>
       <div v-for="view in allViews" :key="view.name">
         <div class="mx-2 my-1.5" />

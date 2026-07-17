@@ -236,6 +236,63 @@
           >
             <CallArea :activity="activity" />
           </div>
+          <!-- Motley Terpz: notes & tasks appear in the unified timeline -->
+          <div
+            v-else-if="activity.activity_type == 'note'"
+            :id="activity.name"
+            class="mb-4 flex cursor-pointer flex-col gap-1 rounded-lg border border-outline-gray-modals bg-surface-gray-1 px-3 py-2.5 hover:border-outline-gray-3"
+            @click="changeTabTo('notes')"
+          >
+            <div class="flex items-center gap-2 text-base">
+              <span class="font-medium text-ink-gray-8">{{ activity.owner_name }}</span>
+              <span class="text-ink-gray-5">{{ __('added a note') }}</span>
+              <div class="ml-auto whitespace-nowrap">
+                <Tooltip :text="formatDate(activity.creation)">
+                  <div class="text-sm text-ink-gray-5">
+                    {{ __(timeAgo(activity.creation)) }}
+                  </div>
+                </Tooltip>
+              </div>
+            </div>
+            <div v-if="activity.data.title" class="text-base font-medium text-ink-gray-9">
+              {{ activity.data.title }}
+            </div>
+            <div
+              v-if="activity.data.content"
+              class="prose-f line-clamp-2 text-p-sm text-ink-gray-6"
+              v-html="sanitizeHTML(activity.data.content)"
+            />
+          </div>
+          <div
+            v-else-if="activity.activity_type == 'task'"
+            :id="activity.name"
+            class="mb-4 flex cursor-pointer flex-col gap-1 rounded-lg border border-outline-gray-modals bg-surface-gray-1 px-3 py-2.5 hover:border-outline-gray-3"
+            @click="changeTabTo('tasks')"
+          >
+            <div class="flex items-center gap-2 text-base">
+              <span class="font-medium text-ink-gray-8">{{ activity.owner_name }}</span>
+              <span class="text-ink-gray-5">{{ __('created a task') }}</span>
+              <Badge
+                v-if="activity.data.status"
+                :label="__(activity.data.status)"
+                variant="subtle"
+                :theme="activity.data.status == 'Done' ? 'green' : 'orange'"
+              />
+              <div class="ml-auto whitespace-nowrap">
+                <Tooltip :text="formatDate(activity.creation)">
+                  <div class="text-sm text-ink-gray-5">
+                    {{ __(timeAgo(activity.creation)) }}
+                  </div>
+                </Tooltip>
+              </div>
+            </div>
+            <div class="text-base font-medium text-ink-gray-9">
+              {{ activity.data.title }}
+            </div>
+            <div v-if="activity.data.due_date" class="text-sm text-ink-gray-5">
+              {{ __('Due') }} {{ formatDate(activity.data.due_date) }}
+            </div>
+          </div>
           <div v-else class="mb-4 flex flex-col gap-2 py-1.5">
             <div class="flex items-center justify-stretch gap-2 text-base">
               <div
@@ -480,13 +537,13 @@ import CommunicationArea from '@/components/CommunicationArea.vue'
 import WhatsappTemplateSelectorModal from '@/components/Modals/WhatsappTemplateSelectorModal.vue'
 import AllModals from '@/components/Activities/AllModals.vue'
 import FilesUploader from '@/components/FilesUploader/FilesUploader.vue'
-import { timeAgo, formatDate, startCase } from '@/utils'
+import { timeAgo, formatDate, startCase, sanitizeHTML } from '@/utils'
 import { globalStore } from '@/stores/global'
 import { usersStore } from '@/stores/users'
 import { whatsappEnabled } from '@/composables/whatsapp'
 import { useDocument } from '@/data/document'
 import { useTelemetry } from 'frappe-ui/frappe'
-import { Button, Tooltip, createResource, toast } from 'frappe-ui'
+import { Badge, Button, Tooltip, createResource, toast } from 'frappe-ui'
 import { useElementVisibility } from '@vueuse/core'
 import {
   ref,
@@ -613,9 +670,31 @@ const replyMessage = ref({})
 
 function get_activities() {
   if (!all_activities.data?.versions) return []
-  if (!all_activities.data?.calls.length)
-    return all_activities.data.versions || []
-  return [...all_activities.data.versions, ...all_activities.data.calls]
+  // Motley Terpz: the Activity tab is the complete picture — merge status
+  // changes, emails, calls, notes and tasks into one chronological stream.
+  const merged = [
+    ...(all_activities.data.versions || []),
+    ...(all_activities.data.calls || []),
+  ]
+  for (const note of all_activities.data.notes || []) {
+    merged.push({
+      activity_type: 'note',
+      name: 'timeline-note-' + note.name,
+      creation: note.added_on || note.modified || note.creation,
+      owner: note.owner,
+      data: note,
+    })
+  }
+  for (const task of all_activities.data.tasks || []) {
+    merged.push({
+      activity_type: 'task',
+      name: 'timeline-task-' + task.name,
+      creation: task.creation,
+      owner: task.owner,
+      data: task,
+    })
+  }
+  return merged
 }
 
 const activities = computed(() => {
@@ -796,6 +875,12 @@ function timelineIcon(activity_type, is_lead) {
       break
     case 'attachment_log':
       icon = AttachmentIcon
+      break
+    case 'note':
+      icon = NoteIcon
+      break
+    case 'task':
+      icon = TaskIcon
       break
     default:
       icon = DotIcon

@@ -12,6 +12,7 @@ import EventModal from '@/components/Modals/EventModal.vue'
 import { showEventModal, activeEvent } from '@/composables/event'
 import { useDoctypeModal } from '@/composables/doctypeModal'
 import { useOnboarding, useTelemetry } from 'frappe-ui/frappe'
+import { usersStore } from '@/stores/users'
 import { call } from 'frappe-ui'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -23,6 +24,7 @@ const props = defineProps({
 const activities = defineModel({ type: Object })
 
 const { showModal } = useDoctypeModal()
+const { getUser } = usersStore()
 const { updateOnboardingStep } = useOnboarding('frappecrm')
 const { capture } = useTelemetry()
 
@@ -111,7 +113,37 @@ function afterDoctype(d, isInsert = false) {
 }
 
 // Call Logs
-function createCallLog() {
+// Salesperson's own number — fetched once per session, then cached.
+let myPhoneNumber = null
+async function getMyPhoneNumber() {
+  if (myPhoneNumber !== null) return myPhoneNumber
+  try {
+    const r = await call('frappe.client.get_value', {
+      doctype: 'User',
+      filters: { name: getUser().name },
+      fieldname: ['mobile_no', 'phone'],
+    })
+    myPhoneNumber = r?.mobile_no || r?.phone || ''
+  } catch (e) {
+    myPhoneNumber = ''
+  }
+  return myPhoneNumber
+}
+
+function nowDatetime() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  )
+}
+
+async function createCallLog() {
+  // Prefill: From = salesperson's cell, To = number on file for this record,
+  // Start Time = now (editable, so calls can be back-dated).
+  const from = await getMyPhoneNumber()
+  const to = props.doc?.mobile_no || props.doc?.phone || ''
   showModal({
     doctype: 'CRM Call Log',
     title: 'Call Log',
@@ -119,6 +151,11 @@ function createCallLog() {
       reference_doctype: props.doctype,
       reference_docname: props.doc?.name,
       reference_doc: { ...props.doc },
+      from,
+      to,
+      start_time: nowDatetime(),
+      type: 'Outgoing',
+      status: 'Completed',
     },
     callbacks: {
       afterInsert: (d) => afterDoctype(d, true),

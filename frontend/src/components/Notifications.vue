@@ -19,10 +19,17 @@
         <div class="flex gap-1 mr-3">
           <Button
             v-if="activeTab == 'all' && notifications.data?.length"
-            :tooltip="__('Mark all as read')"
-            :icon="MarkAsDoneIcon"
+            :label="__('Mark all read')"
+            :icon-left="MarkAsDoneIcon"
             variant="ghost"
             @click="markAllAsRead"
+          />
+          <Button
+            v-if="activeTab == 'all' && notifications.data?.length"
+            :label="__('Clear all')"
+            theme="red"
+            variant="subtle"
+            @click="clearAll"
           />
         </div>
       </div>
@@ -105,7 +112,7 @@ import { globalStore } from '@/stores/global'
 import { timeAgo, sanitizeHTML } from '@/utils'
 import { onClickOutside } from '@vueuse/core'
 import { useTelemetry } from 'frappe-ui/frappe'
-import { TabButtons } from 'frappe-ui'
+import { TabButtons, call } from 'frappe-ui'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 const { $socket } = globalStore()
@@ -139,6 +146,13 @@ function markAsRead(doc) {
 function markAllAsRead() {
   capture('notification_mark_all_as_read')
   mark_as_read.reload()
+}
+
+function clearAll() {
+  capture('notification_clear_all')
+  call('crm.motley_terpz.notifications_ext.clear_all').then(() => {
+    notifications.reload()
+  })
 }
 
 onBeforeUnmount(() => {
