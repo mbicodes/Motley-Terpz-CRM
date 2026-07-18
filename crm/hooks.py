@@ -130,6 +130,10 @@ before_uninstall = "crm.uninstall.before_uninstall"
 # layouts for Lead, Deal, Call Log) — keeps the change across migrations.
 fixtures = [
 	{"dt": "CRM Fields Layout", "filters": [["dt", "in", ["CRM Lead", "CRM Deal", "CRM Call Log"]]]},
+	{"dt": "Custom Field", "filters": [["name", "in", [
+		"CRM Organization-custom_license_expiry",
+		"Item-custom_pre_order_only",
+	]]]},
 ]
 
 # Permissions

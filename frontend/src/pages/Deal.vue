@@ -127,6 +127,11 @@
           </div>
         </div>
       </div>
+      <DealCommercialSnapshot
+        v-if="dealId"
+        ref="commercialSnapshotRef"
+        :dealId="dealId"
+      />
       <SLASection
         v-if="doc.sla_status"
         v-model="doc"
@@ -336,6 +341,7 @@
 </template>
 <script setup>
 import DeleteLinkedDocModal from '@/components/DeleteLinkedDocModal.vue'
+import DealCommercialSnapshot from '@/components/DealCommercialSnapshot.vue'
 import ErrorPage from '@/components/ErrorPage.vue'
 import Icon from '@/components/Icon.vue'
 import Resizer from '@/components/Resizer.vue'
@@ -509,6 +515,7 @@ const reload = ref(false)
 const showOrganizationModal = ref(false)
 const showFilesUploader = ref(false)
 const _organization = ref({})
+const commercialSnapshotRef = ref(null)
 
 const breadcrumbs = computed(() => {
   let items = [{ label: __('Deals'), route: { name: 'Deals' } }]
@@ -826,6 +833,12 @@ function reloadResources(data) {
     getDealStatus(data.status).type != 'Lost'
   ) {
     sections.reload()
+  }
+  if (
+    commercialSnapshotRef.value &&
+    ['organization', 'custom_item'].some((f) => Object.hasOwn(data ?? {}, f))
+  ) {
+    commercialSnapshotRef.value.reload()
   }
 }
 </script>
