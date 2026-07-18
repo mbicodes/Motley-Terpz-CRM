@@ -133,6 +133,8 @@ fixtures = [
 	{"dt": "Custom Field", "filters": [["name", "in", [
 		"CRM Organization-custom_license_expiry",
 		"Item-custom_pre_order_only",
+		"Email Group Member-crm_reference_doctype",
+		"Email Group Member-crm_reference_name",
 	]]]},
 ]
 

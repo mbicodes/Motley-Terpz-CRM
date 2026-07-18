@@ -164,6 +164,11 @@ const routes = [
     component: () => import('@/pages/MyDay.vue'),
   },
   {
+    path: '/campaigns',
+    name: 'Campaigns',
+    component: () => import('@/pages/Campaigns.vue'),
+  },
+  {
     path: '/customer-dashboard/:customerId',
     name: 'CustomerDashboard',
     component: () => import('@/pages/CustomerDashboard.vue'),
