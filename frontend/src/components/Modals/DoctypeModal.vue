@@ -41,6 +41,15 @@
             :data="doc"
             :doctype="doctype"
           />
+          <div v-if="!editMode && doctype === 'CRM Call Log'" class="mt-4">
+            <FormControl
+              type="textarea"
+              :label="__('Note')"
+              :placeholder="__('Add a note about this call (optional)')"
+              v-model="quickNote"
+              :rows="3"
+            />
+          </div>
           <ErrorMessage v-if="error" class="mt-4" :message="__(error)" />
         </div>
       </div>
@@ -68,7 +77,7 @@ import { usersStore } from '@/stores/users'
 import { showQuickEntryModal, quickEntryProps } from '@/composables/modals'
 import { isMobileView } from '@/composables/settings'
 import { setupCustomizations } from '@/utils'
-import { call, createResource, toast } from 'frappe-ui'
+import { call, createResource, toast, FormControl } from 'frappe-ui'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -93,19 +102,51 @@ const { document, scripts, triggerOnRender, triggerOnBeforeCreate } =
 
 const doc = computed(() => document.doc || {})
 
+const MANUAL_CALL_STATUS_OPTIONS = ['Completed', 'No Answer', 'Busy', 'Canceled']
+
 const layout = createResource({
   url: 'crm.fcrm.doctype.crm_fields_layout.crm_fields_layout.get_fields_layout',
   cache: ['Quick Entry', props.doctype],
   params: { doctype: props.doctype, type: 'Quick Entry' },
   auto: true,
+  transform: (_tabs) => {
+    if (props.doctype !== 'CRM Call Log') return _tabs
+    // Manual logging only needs a practical outcome, not every Twilio/Exotel
+    // call-state value — the full option list stays intact on the doctype
+    // itself for when telephony automation is added.
+    _tabs.forEach((tab) => {
+      tab.sections.forEach((section) => {
+        section.columns.forEach((column) => {
+          column.fields.forEach((field) => {
+            if (field.fieldname === 'status') {
+              field.options = MANUAL_CALL_STATUS_OPTIONS.join('\n')
+            }
+          })
+        })
+      })
+    })
+    return _tabs
+  },
 })
 
 const error = ref(null)
 const editMode = computed(() => Boolean(document.doc?.name))
+const quickNote = ref('')
 
 const _create = createResource({
   url: 'frappe.client.insert',
-  onSuccess: (d) => {
+  onSuccess: async (d) => {
+    if (props.doctype === 'CRM Call Log' && quickNote.value.trim()) {
+      try {
+        await call('crm.integrations.api.add_note_to_call_log', {
+          call_sid: d.name,
+          note: { title: 'Call Note', content: quickNote.value.trim() },
+        })
+      } catch (e) {
+        // Call log itself was created fine; note failed — don't block the flow.
+      }
+    }
+    quickNote.value = ''
     document.doc = {}
     emit('afterInsert', d)
     show.value = false

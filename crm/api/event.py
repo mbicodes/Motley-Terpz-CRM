@@ -339,6 +339,7 @@ def _send_email_notification(notification, event_start, before_value, interval):
 
 		frappe.sendmail(
 			recipients=recipients,
+			sender="Douglas@kiloandco.com",
 			subject=subject,
 			message=message,
 			reference_doctype="Event",

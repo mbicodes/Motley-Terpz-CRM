@@ -24,7 +24,7 @@ one-off "Send Email" feature on Lead/Deal.
 import frappe
 from frappe.utils import now_datetime, validate_email_address
 
-DEFAULT_SENDER_EMAIL = "info@motleyterpz.io"
+DEFAULT_SENDER_EMAIL = "Douglas@kiloandco.com"
 DEFAULT_SENDER_NAME = "Motley Terpz"
 
 EMAIL_FIELD_BY_DOCTYPE = {

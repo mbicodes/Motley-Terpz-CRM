@@ -44,6 +44,7 @@ class CRMInvitation(Document):
 
 		frappe.sendmail(
 			recipients=self.email,
+			sender="Douglas@kiloandco.com",
 			subject=f"You have been invited to join {title}",
 			template=template,
 			args={"title": title, "invite_link": invite_link},

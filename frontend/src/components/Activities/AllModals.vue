@@ -6,15 +6,26 @@
     :doctype="doctype"
     :docname="doc?.name"
   />
+  <TaskCompleteDialog
+    v-if="showTaskCompleteDialog"
+    v-model="showTaskCompleteDialog"
+    :task="taskToComplete"
+    @completed="() => activities.reload()"
+  />
 </template>
 <script setup>
 import EventModal from '@/components/Modals/EventModal.vue'
+import TaskCompleteDialog from '@/components/Modals/TaskCompleteDialog.vue'
 import { showEventModal, activeEvent } from '@/composables/event'
 import { useDoctypeModal } from '@/composables/doctypeModal'
 import { useOnboarding, useTelemetry } from 'frappe-ui/frappe'
 import { usersStore } from '@/stores/users'
 import { call } from 'frappe-ui'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+const showTaskCompleteDialog = ref(false)
+const taskToComplete = ref(null)
 
 const props = defineProps({
   doctype: { type: String, default: '' },
@@ -60,6 +71,12 @@ async function deleteTask(name) {
 }
 
 function updateTaskStatus(status, task) {
+  if (status === 'Done') {
+    taskToComplete.value = task
+    showTaskCompleteDialog.value = true
+    return
+  }
+
   call('frappe.client.set_value', {
     doctype: 'CRM Task',
     name: task.name,

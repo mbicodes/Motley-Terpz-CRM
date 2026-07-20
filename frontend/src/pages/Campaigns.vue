@@ -104,6 +104,7 @@
         <div v-if="audience" class="cp-audience-confirmed">
           ✓ Audience ready: <b>{{ audience.total_subscribers }}</b> recipient(s)
         </div>
+        <div v-if="audienceError" class="cp-audience-error">✗ {{ audienceError }}</div>
       </div>
 
       <!-- Step 2: compose -->
@@ -150,6 +151,10 @@
             {{ sending ? 'Sending…' : `Send to ${audience?.total_subscribers || 0} recipients` }}
           </button>
         </div>
+        <div v-if="!canSend && !sending" class="cp-audience-hint">
+          {{ !subject ? 'Add a subject line.' : !hasContent ? 'Add campaign content.' : 'Build or select an audience above first.' }}
+        </div>
+        <div v-if="sendError" class="cp-audience-error">✗ {{ sendError }}</div>
       </div>
     </div>
   </div>
@@ -171,6 +176,8 @@ const picked = ref([])
 const audienceTitle = ref('')
 const buildingAudience = ref(false)
 const audience = ref(null)
+const audienceError = ref('')
+const sendError = ref('')
 
 const existingGroups = ref([])
 const selectedExistingGroup = ref('')
@@ -208,11 +215,15 @@ function removeRecipient(r) {
 
 async function buildAudience() {
   buildingAudience.value = true
+  audienceError.value = ''
   try {
     audience.value = await call('crm.motley_terpz.campaigns.build_audience', {
       title: audienceTitle.value,
       recipients: picked.value.map((p) => ({ name: p.name, doctype: p.doctype, email: p.email })),
     })
+  } catch (e) {
+    audience.value = null
+    audienceError.value = e.messages?.[0] || e.message || 'Failed to save audience'
   } finally {
     buildingAudience.value = false
   }
@@ -226,11 +237,13 @@ const resolvedAudienceName = computed(() =>
   audienceMode.value === 'build' ? audience.value?.name : selectedExistingGroup.value,
 )
 
-const canDraft = computed(() => {
-  const hasAudience = audienceMode.value === 'build' ? !!audience.value : !!selectedExistingGroup.value
-  const hasContent = contentType.value === 'HTML' ? !!htmlContent.value : !!richContent.value
-  return hasAudience && !!subject.value && hasContent
-})
+const hasAudience = computed(() =>
+  audienceMode.value === 'build' ? !!audience.value : !!selectedExistingGroup.value,
+)
+const hasContent = computed(() =>
+  contentType.value === 'HTML' ? !!htmlContent.value : !!richContent.value,
+)
+const canDraft = computed(() => hasAudience.value && !!subject.value && hasContent.value)
 const canSend = computed(() => canDraft.value)
 
 let draftName = null
@@ -265,11 +278,14 @@ async function doSend() {
     return
   }
   sending.value = true
+  sendError.value = ''
   try {
     const name = draftName || (await ensureDraft())
     await call('crm.motley_terpz.campaigns.send_campaign', { newsletter: name })
     composing.value = false
     await loadCampaigns()
+  } catch (e) {
+    sendError.value = e.messages?.[0] || e.message || 'Failed to send campaign'
   } finally {
     sending.value = false
   }
@@ -356,6 +372,8 @@ onMounted(loadCampaigns)
 .cp-chip-x{cursor:pointer;font-weight:700;}
 
 .cp-audience-confirmed{background:#f0fdf4;color:#166534;border-radius:6px;padding:8px 12px;font-size:12.5px;font-weight:600;}
+.cp-audience-error{background:#fef2f2;color:#991b1b;border-radius:6px;padding:8px 12px;font-size:12.5px;font-weight:600;margin-top:8px;}
+.cp-audience-hint{color:#6b7280;font-size:12px;margin-top:6px;text-align:right;}
 
 .cp-editor{border:1px solid #e2e8f0;border-radius:8px;padding:12px;min-height:220px;}
 .cp-html-source{border:1px solid #e2e8f0;border-radius:8px;padding:12px;min-height:220px;font-family:monospace;font-size:12.5px;width:100%;resize:vertical;}

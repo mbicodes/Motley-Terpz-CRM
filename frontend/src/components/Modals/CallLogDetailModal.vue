@@ -100,10 +100,13 @@
               </div>
               <div
                 v-else-if="field.name == 'note'"
-                class="w-full cursor-pointer rounded border px-2 pt-1.5 text-base text-ink-gray-7"
+                class="w-full cursor-pointer rounded border px-2 pt-1.5 text-base text-ink-gray-7 hover:bg-surface-gray-1"
                 @click="() => showNote(field.value?.name)"
               >
-                <FadedScrollableDiv class="max-h-24 min-h-16 overflow-y-auto">
+                <FadedScrollableDiv
+                  v-if="field.value?.title || field.value?.content"
+                  class="max-h-24 min-h-16 overflow-y-auto"
+                >
                   <div
                     v-if="field.value?.title"
                     :class="[field.value?.content ? 'mb-1 font-bold' : '']"
@@ -114,6 +117,13 @@
                     v-html="sanitizeHTML(field.value?.content)"
                   />
                 </FadedScrollableDiv>
+                <div
+                  v-else
+                  class="flex min-h-16 items-center gap-1.5 text-ink-gray-5"
+                >
+                  <FeatherIcon name="plus" class="h-3.5 w-3.5" />
+                  {{ __('Add a note') }}
+                </div>
               </div>
               <div
                 v-else-if="field.name == 'task'"

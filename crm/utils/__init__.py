@@ -252,6 +252,22 @@ def update_modified_background(doctype: str, docname: str):
 	frappe.db.set_value(doctype, docname, "modified", now(), update_modified=False)
 
 
+FORCED_CRM_SENDER = "Douglas@kiloandco.com"
+CRM_EMAIL_REFERENCE_DOCTYPES = ("CRM Lead", "CRM Deal", "CRM Task", "CRM Call Log", "Event")
+
+
+def force_crm_sender(doc: Communication, method: str | None = None):
+	"""All outgoing email tied to a CRM record — one-off replies from the
+	compose dialog, meeting invites/reminders, etc. — must go out as
+	Douglas@kiloandco.com regardless of which account the sending user
+	picked or is logged in as."""
+	if doc.communication_medium != "Email" or doc.sent_or_received != "Sent":
+		return
+	if doc.reference_doctype not in CRM_EMAIL_REFERENCE_DOCTYPES:
+		return
+	doc.sender = FORCED_CRM_SENDER
+
+
 def on_communication_insert(doc: Communication, method: str | None = None):
 	create_lead_from_incoming_email(doc)
 

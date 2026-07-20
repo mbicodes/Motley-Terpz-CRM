@@ -175,6 +175,7 @@ doc_events = {
 		"on_update": ["crm.api.todo.on_update"],
 	},
 	"Communication": {
+		"before_insert": ["crm.utils.force_crm_sender"],
 		"after_insert": ["crm.utils.on_communication_insert"],
 		"on_update": ["crm.utils.on_communication_update"],
 	},
