@@ -28,6 +28,32 @@ PIPELINE_ITEM_GROUPS = {
 TOLLING_ITEM_CODE = "toll-processing-fee"
 
 
+def _apply_customer_permissions(customer_names):
+    """Restrict a raw-SQL customer list to what the current user is allowed to see.
+
+    The candidate lists above are built with `frappe.db.sql`, which bypasses the
+    Customer `permission_query_conditions` hook (Sales Person / Assign-To
+    visibility) registered by cannabis_management. Round-tripping the names
+    through `frappe.get_list` re-applies that hook, so these pipeline pages honour
+    the same rule as the rest of the CRM:
+      • Sales Person user  → only customers assigned to them (via _assign or an
+        owned CRM Lead); unassigned customers are hidden.
+      • Non-Sales-Person   → sees every customer (treated as a normal user).
+      • Administrator / Super Admin → unrestricted.
+    """
+    if not customer_names:
+        return customer_names
+
+    allowed = set(frappe.get_list(
+        "Customer",
+        filters={"name": ["in", list(customer_names)]},
+        pluck="name",
+        limit_page_length=0,
+    ))
+    # Preserve the original order of the candidate list.
+    return [c for c in customer_names if c in allowed]
+
+
 def _get_descendants(parent_item_group):
     """Recursive CTE to get all child item groups."""
     rows = frappe.db.sql_list("""
@@ -191,6 +217,10 @@ def get_pipeline_customers(pipeline, page_length=100):
 
     else:
         frappe.throw(f"Unknown pipeline: {pipeline}")
+
+    # Enforce the same Sales Person / Assign-To visibility used across the CRM.
+    # (The candidate queries above use raw SQL, which skips the permission hook.)
+    customer_names = _apply_customer_permissions(customer_names)
 
     if not customer_names:
         return []
