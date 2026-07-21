@@ -112,9 +112,12 @@
         <div class="cp-card-head">2. Compose</div>
         <input v-model="subject" class="cp-input cp-input-wide" placeholder="Subject line" />
 
-        <div class="cp-audience-tabs">
-          <button class="cp-tab" :class="{ active: contentType === 'Rich Text' }" @click="contentType = 'Rich Text'">Rich Text</button>
-          <button class="cp-tab" :class="{ active: contentType === 'HTML' }" @click="contentType = 'HTML'">HTML Source</button>
+        <div class="cp-row" style="justify-content: space-between;">
+          <div class="cp-audience-tabs">
+            <button class="cp-tab" :class="{ active: contentType === 'Rich Text' }" @click="contentType = 'Rich Text'">Rich Text</button>
+            <button class="cp-tab" :class="{ active: contentType === 'HTML' }" @click="contentType = 'HTML'">HTML Source</button>
+          </div>
+          <button class="cp-btn" :disabled="!hasContent" @click="showPreview = true">Preview</button>
         </div>
 
         <TextEditor
@@ -157,6 +160,16 @@
         <div v-if="sendError" class="cp-audience-error">✗ {{ sendError }}</div>
       </div>
     </div>
+
+    <div v-if="showPreview" class="cp-preview-overlay" @click.self="showPreview = false">
+      <div class="cp-preview-panel">
+        <div class="cp-preview-head">
+          <span>{{ subject || '(no subject)' }}</span>
+          <button class="cp-btn" @click="showPreview = false">Close</button>
+        </div>
+        <iframe class="cp-preview-frame" :srcdoc="previewHtml" sandbox=""></iframe>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -191,6 +204,11 @@ const testEmail = ref('')
 const sendingTest = ref(false)
 const testSentMsg = ref('')
 const sending = ref(false)
+const showPreview = ref(false)
+
+const previewHtml = computed(() =>
+  contentType.value === 'HTML' ? htmlContent.value : richContent.value,
+)
 
 let searchTimer = null
 function debouncedSearch() {
@@ -374,6 +392,11 @@ onMounted(loadCampaigns)
 .cp-audience-confirmed{background:#f0fdf4;color:#166534;border-radius:6px;padding:8px 12px;font-size:12.5px;font-weight:600;}
 .cp-audience-error{background:#fef2f2;color:#991b1b;border-radius:6px;padding:8px 12px;font-size:12.5px;font-weight:600;margin-top:8px;}
 .cp-audience-hint{color:#6b7280;font-size:12px;margin-top:6px;text-align:right;}
+
+.cp-preview-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.cp-preview-panel{background:#fff;border-radius:10px;width:min(720px,92vw);height:min(80vh,860px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px -20px rgba(0,0,0,.4);}
+.cp-preview-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:13px;}
+.cp-preview-frame{flex:1;border:0;width:100%;background:#fff;}
 
 .cp-editor{border:1px solid #e2e8f0;border-radius:8px;padding:12px;min-height:220px;}
 .cp-html-source{border:1px solid #e2e8f0;border-radius:8px;padding:12px;min-height:220px;font-family:monospace;font-size:12.5px;width:100%;resize:vertical;}

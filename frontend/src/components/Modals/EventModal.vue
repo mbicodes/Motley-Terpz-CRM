@@ -28,6 +28,16 @@
               <LucideCopy class="h-4 w-4 text-ink-gray-9" />
             </template>
           </Button>
+          <Button
+            v-if="mode === 'edit'"
+            variant="ghost"
+            :tooltip="__('Attach transcript or notes')"
+            @click="showAttachmentUploader = true"
+          >
+            <template #icon>
+              <LucidePaperclip class="h-4 w-4 text-ink-gray-9" />
+            </template>
+          </Button>
           <Button variant="ghost" @click="show = false">
             <template #icon>
               <LucideX class="h-4 w-4 text-ink-gray-9" />
@@ -226,8 +236,15 @@
       </div>
     </template>
   </Dialog>
+  <FilesUploader
+    v-if="mode === 'edit'"
+    v-model="showAttachmentUploader"
+    doctype="Event"
+    :docname="props.event.name"
+  />
 </template>
 <script setup>
+import FilesUploader from '@/components/FilesUploader/FilesUploader.vue'
 import EventNotifications from '@/components/Calendar/EventNotifications.vue'
 import Attendee from '@/components/Calendar/Attendee.vue'
 import {
@@ -269,6 +286,7 @@ const { eventsResource } = useEvent({
 
 const title = ref(null)
 const error = ref(null)
+const showAttachmentUploader = ref(false)
 const mode = computed(() => {
   return _event.value.id == 'duplicate'
     ? 'duplicate'

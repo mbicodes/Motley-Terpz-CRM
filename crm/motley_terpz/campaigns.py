@@ -163,6 +163,16 @@ def send_test(newsletter, email):
     _check_sender_access()
     doc = frappe.get_doc("Newsletter", newsletter)
     doc.send_test_email(email)
+
+    reference_doctype, reference_name = _find_crm_reference_by_email(email)
+    if reference_doctype:
+        _log_communication(
+            subject=f"[Test] {doc.subject}",
+            content=doc.get_message(),
+            recipient_email=email,
+            reference_doctype=reference_doctype,
+            reference_name=reference_name,
+        )
     return {"ok": True}
 
 
@@ -173,6 +183,33 @@ def send_campaign(newsletter):
     doc.send_emails()
     _log_crm_communications(doc)
     return {"ok": True}
+
+
+def _find_crm_reference_by_email(email):
+    """Best-effort lookup of a CRM Lead/Deal/Contact whose email matches, so
+    a send can be logged against it even outside a built audience (e.g. a
+    one-off test send). Returns (doctype, name) or (None, None)."""
+    for doctype, email_field in EMAIL_FIELD_BY_DOCTYPE.items():
+        name = frappe.db.get_value(doctype, {email_field: email})
+        if name:
+            return doctype, name
+    return None, None
+
+
+def _log_communication(subject, content, recipient_email, reference_doctype, reference_name):
+    frappe.get_doc({
+        "doctype": "Communication",
+        "communication_type": "Communication",
+        "communication_medium": "Email",
+        "sent_or_received": "Sent",
+        "subject": subject,
+        "content": content,
+        "sender": DEFAULT_SENDER_EMAIL,
+        "recipients": recipient_email,
+        "reference_doctype": reference_doctype,
+        "reference_name": reference_name,
+        "communication_date": now_datetime(),
+    }).insert(ignore_permissions=True)
 
 
 def _log_crm_communications(newsletter_doc):
@@ -188,19 +225,13 @@ def _log_crm_communications(newsletter_doc):
     for m in members:
         if not frappe.db.exists(m.crm_reference_doctype, m.crm_reference_name):
             continue
-        frappe.get_doc({
-            "doctype": "Communication",
-            "communication_type": "Communication",
-            "communication_medium": "Email",
-            "sent_or_received": "Sent",
-            "subject": newsletter_doc.subject,
-            "content": content,
-            "sender": DEFAULT_SENDER_EMAIL,
-            "recipients": m.email,
-            "reference_doctype": m.crm_reference_doctype,
-            "reference_name": m.crm_reference_name,
-            "communication_date": now_datetime(),
-        }).insert(ignore_permissions=True)
+        _log_communication(
+            subject=newsletter_doc.subject,
+            content=content,
+            recipient_email=m.email,
+            reference_doctype=m.crm_reference_doctype,
+            reference_name=m.crm_reference_name,
+        )
 
 
 @frappe.whitelist()

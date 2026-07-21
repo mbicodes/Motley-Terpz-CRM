@@ -264,6 +264,31 @@
             />
           </div>
           <div
+            v-else-if="activity.activity_type == 'event'"
+            :id="activity.name"
+            class="mb-4 flex cursor-pointer flex-col gap-1 rounded-lg border border-outline-gray-modals bg-surface-gray-1 px-3 py-2.5 hover:border-outline-gray-3"
+            @click="showTimelineEvent(activity.data)"
+          >
+            <div class="flex items-center gap-2 text-base">
+              <span class="font-medium text-ink-gray-8">{{ activity.owner_name }}</span>
+              <span class="text-ink-gray-5">{{ __('logged a meeting') }}</span>
+              <div class="ml-auto whitespace-nowrap">
+                <Tooltip :text="formatDate(activity.creation)">
+                  <div class="text-sm text-ink-gray-5">
+                    {{ __(timeAgo(activity.creation)) }}
+                  </div>
+                </Tooltip>
+              </div>
+            </div>
+            <div class="text-base font-medium text-ink-gray-9">
+              {{ activity.data.subject }}
+            </div>
+            <div class="flex justify-between gap-2 text-sm text-ink-gray-6">
+              <div>{{ startEndTime(activity.data.starts_on, activity.data.ends_on, activity.data.all_day) }}</div>
+              <div>{{ startDate(activity.data.starts_on) }}</div>
+            </div>
+          </div>
+          <div
             v-else-if="activity.activity_type == 'task'"
             :id="activity.name"
             class="mb-4 flex cursor-pointer flex-col gap-1 rounded-lg border border-outline-gray-modals bg-surface-gray-1 px-3 py-2.5 hover:border-outline-gray-3"
@@ -541,6 +566,7 @@ import { timeAgo, formatDate, startCase, sanitizeHTML } from '@/utils'
 import { globalStore } from '@/stores/global'
 import { usersStore } from '@/stores/users'
 import { whatsappEnabled } from '@/composables/whatsapp'
+import { useEvent, showEventModal, activeEvent } from '@/composables/event'
 import { useDocument } from '@/data/document'
 import { useTelemetry } from 'frappe-ui/frappe'
 import { Badge, Button, Tooltip, createResource, toast } from 'frappe-ui'
@@ -575,6 +601,18 @@ const reload = defineModel('reload', { type: Boolean, default: false })
 const tabIndex = defineModel('tabIndex', { type: Number, default: 0 })
 
 const { document: _document } = useDocument(props.doctype, props.docname)
+
+const { events: timelineEvents, startEndTime, startDate } = useEvent({
+  doctype: props.doctype,
+  docname: props.docname,
+  participants: false,
+  notifications: false,
+})
+
+function showTimelineEvent(event) {
+  showEventModal.value = true
+  activeEvent.value = event
+}
 
 const doc = computed(() => _document.doc || {})
 
@@ -683,6 +721,15 @@ function get_activities() {
       creation: note.added_on || note.modified || note.creation,
       owner: note.owner,
       data: note,
+    })
+  }
+  for (const event of timelineEvents.value || []) {
+    merged.push({
+      activity_type: 'event',
+      name: 'timeline-event-' + event.name,
+      creation: event.creation,
+      owner: event.owner,
+      data: event,
     })
   }
   for (const task of all_activities.data.tasks || []) {

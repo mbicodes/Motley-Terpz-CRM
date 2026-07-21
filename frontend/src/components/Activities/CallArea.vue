@@ -91,6 +91,17 @@
       >
         <AudioPlayer :src="callLog.data.recording_url_path" />
       </div>
+      <div
+        v-if="callLog?.data?._notes?.[0]?.content"
+        class="rounded border border-outline-gray-modals bg-surface-gray-1 px-2.5 py-2 text-sm text-ink-gray-8"
+      >
+        <div
+          v-if="callLog.data._notes[0].title"
+          class="mb-1 font-medium"
+          v-html="sanitizeHTML(callLog.data._notes[0].title)"
+        />
+        <div v-html="sanitizeHTML(callLog.data._notes[0].content)" />
+      </div>
     </div>
     <CallLogDetailModal
       v-model="showCallLogDetailModal"
@@ -106,7 +117,7 @@ import MultipleAvatar from '@/components/MultipleAvatar.vue'
 import AudioPlayer from '@/components/Activities/AudioPlayer.vue'
 import CallLogDetailModal from '@/components/Modals/CallLogDetailModal.vue'
 import { statusLabelMap, statusColorMap } from '@/utils/callLog.js'
-import { formatDate, timeAgo } from '@/utils'
+import { formatDate, timeAgo, sanitizeHTML } from '@/utils'
 import { Avatar, Badge, Tooltip, createResource } from 'frappe-ui'
 import { reactive, ref } from 'vue'
 

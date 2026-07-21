@@ -37,6 +37,8 @@ def _record_route(doctype, name, tab=None):
         path = f"/crm/leads/{name}"
     elif doctype == "CRM Deal":
         path = f"/crm/deals/{name}"
+    elif doctype == "Contact":
+        path = f"/contacts/{name}"
     else:
         return None
     return f"{path}#{tab}" if tab else path
