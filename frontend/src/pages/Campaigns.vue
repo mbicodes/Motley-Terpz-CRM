@@ -22,7 +22,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in campaigns" :key="c.name">
+          <tr v-for="c in campaigns" :key="c.name" class="cp-row-click" @click="openCampaign(c.name)">
             <td class="cp-strong">{{ c.subject }}</td>
             <td>{{ c.content_type }}</td>
             <td>
@@ -101,8 +101,8 @@
           </select>
         </template>
 
-        <div v-if="audience" class="cp-audience-confirmed">
-          ✓ Audience ready: <b>{{ audience.total_subscribers }}</b> recipient(s)
+        <div v-if="selectedGroupInfo" class="cp-audience-confirmed">
+          ✓ Audience ready: <b>{{ selectedGroupInfo.total_subscribers }}</b> recipient(s)
         </div>
         <div v-if="audienceError" class="cp-audience-error">✗ {{ audienceError }}</div>
       </div>
@@ -151,7 +151,7 @@
         <div class="cp-row cp-row-end">
           <button class="cp-btn" @click="composing = false">Cancel</button>
           <button class="cp-btn cp-btn-danger" :disabled="!canSend || sending" @click="doSend">
-            {{ sending ? 'Sending…' : `Send to ${audience?.total_subscribers || 0} recipients` }}
+            {{ sending ? 'Sending…' : `Send to ${selectedGroupInfo?.total_subscribers || 0} recipients` }}
           </button>
         </div>
         <div v-if="!canSend && !sending" class="cp-audience-hint">
@@ -176,6 +176,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { call, TextEditor } from 'frappe-ui'
+import { pendingCampaignAudience } from '@/composables/campaignPrefill'
 
 const composing = ref(false)
 const loadingList = ref(true)
@@ -258,13 +259,17 @@ const resolvedAudienceName = computed(() =>
 const hasAudience = computed(() =>
   audienceMode.value === 'build' ? !!audience.value : !!selectedExistingGroup.value,
 )
+const selectedGroupInfo = computed(() => {
+  if (audienceMode.value === 'build') return audience.value
+  return existingGroups.value.find((g) => g.name === selectedExistingGroup.value) || null
+})
 const hasContent = computed(() =>
   contentType.value === 'HTML' ? !!htmlContent.value : !!richContent.value,
 )
 const canDraft = computed(() => hasAudience.value && !!subject.value && hasContent.value)
 const canSend = computed(() => canDraft.value)
 
-let draftName = null
+const draftName = ref(null)
 async function ensureDraft() {
   const content = contentType.value === 'HTML' ? htmlContent.value : richContent.value
   const r = await call('crm.motley_terpz.campaigns.create_campaign', {
@@ -272,9 +277,30 @@ async function ensureDraft() {
     content,
     content_type: contentType.value,
     email_group: resolvedAudienceName.value,
+    newsletter: draftName.value,
   })
-  draftName = r.name
+  draftName.value = r.name
   return r.name
+}
+
+async function openCampaign(name) {
+  const [c] = await Promise.all([
+    call('crm.motley_terpz.campaigns.get_campaign', { newsletter: name }),
+    loadExistingGroups(),
+  ])
+  draftName.value = c.name
+  subject.value = c.subject
+  contentType.value = c.content_type === 'Markdown' ? 'Rich Text' : c.content_type
+  if (c.content_type === 'HTML') {
+    htmlContent.value = c.content
+  } else {
+    richContent.value = c.content
+  }
+  audienceMode.value = 'existing'
+  selectedExistingGroup.value = c.email_group
+  audienceError.value = ''
+  sendError.value = ''
+  composing.value = true
 }
 
 async function doSendTest() {
@@ -292,13 +318,13 @@ async function doSendTest() {
 }
 
 async function doSend() {
-  if (!confirm(`Send this campaign to ${audience.value?.total_subscribers || existingGroups.value.find(g => g.name === selectedExistingGroup.value)?.total_subscribers || 'all'} recipients? This can't be undone.`)) {
+  if (!confirm(`Send this campaign to ${selectedGroupInfo.value?.total_subscribers || 'all'} recipients? This can't be undone.`)) {
     return
   }
   sending.value = true
   sendError.value = ''
   try {
-    const name = draftName || (await ensureDraft())
+    const name = await ensureDraft()
     await call('crm.motley_terpz.campaigns.send_campaign', { newsletter: name })
     composing.value = false
     await loadCampaigns()
@@ -320,7 +346,7 @@ function startNew() {
   htmlContent.value = ''
   testEmail.value = ''
   testSentMsg.value = ''
-  draftName = null
+  draftName.value = null
   loadExistingGroups()
 }
 
@@ -337,7 +363,27 @@ function fmtDate(v) {
   return new Date(v).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-onMounted(loadCampaigns)
+async function consumePendingAudience() {
+  const pending = pendingCampaignAudience.value
+  if (!pending) return
+  pendingCampaignAudience.value = null
+
+  startNew()
+  searchDoctype.value = pending.doctype
+  const rows = await call('crm.motley_terpz.campaigns.get_recipients_by_names', {
+    doctype: pending.doctype,
+    names: pending.names,
+  })
+  picked.value = rows.map((r) => ({ ...r, doctype: pending.doctype }))
+  if (rows.length < pending.names.length) {
+    audienceError.value = `${pending.names.length - rows.length} of ${pending.names.length} selected record(s) had no email address and were skipped.`
+  }
+}
+
+onMounted(async () => {
+  await loadCampaigns()
+  await consumePendingAudience()
+})
 </script>
 
 <style scoped>
@@ -357,6 +403,8 @@ onMounted(loadCampaigns)
 .cp-table th{text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;background:#f8fafc;}
 .cp-table th.r,.cp-table td.r{text-align:right;}
 .cp-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;}
+.cp-row-click{cursor:pointer;}
+.cp-row-click:hover{background:#f8fafc;}
 .cp-strong{font-weight:700;}
 .cp-dim{color:#94a3b8;font-size:12px;}
 .cp-empty{padding:30px;text-align:center;color:#94a3b8;}

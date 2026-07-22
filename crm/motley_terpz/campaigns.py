@@ -21,6 +21,8 @@ Only CRM Sales User (and above) may send — same gate as the existing
 one-off "Send Email" feature on Lead/Deal.
 """
 
+import json
+
 import frappe
 from frappe.utils import now_datetime, validate_email_address
 
@@ -54,23 +56,45 @@ def _title_for(doctype, row):
 def search_recipients(doctype, txt=""):
     """Records of the given doctype with a usable email address, for the
     audience-builder's search box."""
-    _check_sender_access()
     if doctype not in EMAIL_FIELD_BY_DOCTYPE:
         frappe.throw(f"Unsupported doctype: {doctype}")
     email_field = EMAIL_FIELD_BY_DOCTYPE[doctype]
 
     title_field = {"CRM Lead": "lead_name", "CRM Deal": "organization", "Contact": "full_name"}[doctype]
-    filters = {email_field: ["is", "set"]}
     or_filters = None
     if txt:
         or_filters = [[title_field, "like", f"%{txt}%"], [email_field, "like", f"%{txt}%"]]
 
+    return _recipient_rows(doctype, {email_field: ["is", "set"]}, or_filters, limit_page_length=20)
+
+
+@frappe.whitelist()
+def get_recipients_by_names(doctype, names):
+    """Records of the given doctype/names with a usable email address —
+    lets a bulk selection from the Leads/Deals list view be pre-filled into
+    the audience builder instead of re-searching each name one at a time."""
+    if isinstance(names, str):
+        names = json.loads(names)
+    if doctype not in EMAIL_FIELD_BY_DOCTYPE:
+        frappe.throw(f"Unsupported doctype: {doctype}")
+    email_field = EMAIL_FIELD_BY_DOCTYPE[doctype]
+    return _recipient_rows(
+        doctype,
+        {"name": ["in", names], email_field: ["is", "set"]},
+        limit_page_length=0,
+    )
+
+
+def _recipient_rows(doctype, filters, or_filters=None, limit_page_length=20):
+    _check_sender_access()
+    email_field = EMAIL_FIELD_BY_DOCTYPE[doctype]
+    title_field = {"CRM Lead": "lead_name", "CRM Deal": "organization", "Contact": "full_name"}[doctype]
     rows = frappe.get_all(
         doctype,
         filters=filters,
         or_filters=or_filters,
         fields=["name", email_field, title_field],
-        limit_page_length=20,
+        limit_page_length=limit_page_length,
         order_by="modified desc",
     )
     return [
@@ -98,7 +122,6 @@ def build_audience(title, recipients):
     """
     _check_sender_access()
     if isinstance(recipients, str):
-        import json
         recipients = json.loads(recipients)
     if not recipients:
         frappe.throw("Pick at least one recipient")
@@ -133,29 +156,54 @@ def build_audience(title, recipients):
 
 
 @frappe.whitelist()
-def create_campaign(subject, content, content_type, email_group):
-    """Draft a Newsletter — not sent yet."""
+def create_campaign(subject, content, content_type, email_group, newsletter=None):
+    """Draft a Newsletter — not sent yet. Updates in place if `newsletter`
+    points at an existing, not-yet-sent draft; otherwise creates a new one."""
     _check_sender_access()
     if content_type not in ("Rich Text", "Markdown", "HTML"):
         frappe.throw("Invalid content type")
 
-    doc = frappe.get_doc({
-        "doctype": "Newsletter",
-        "subject": subject,
-        "content_type": content_type,
-        "sender_email": DEFAULT_SENDER_EMAIL,
-        "sender_name": DEFAULT_SENDER_NAME,
-        "send_unsubscribe_link": 1,
-        "email_group": [{"email_group": email_group}],
-    })
+    if newsletter and frappe.db.exists("Newsletter", newsletter):
+        doc = frappe.get_doc("Newsletter", newsletter)
+        if doc.email_sent:
+            frappe.throw("This campaign has already been sent and can't be edited")
+    else:
+        doc = frappe.new_doc("Newsletter")
+        doc.sender_email = DEFAULT_SENDER_EMAIL
+        doc.sender_name = DEFAULT_SENDER_NAME
+        doc.send_unsubscribe_link = 1
+
+    doc.subject = subject
+    doc.content_type = content_type
+    doc.email_group = [{"email_group": email_group}]
     if content_type == "HTML":
         doc.message_html = content
     elif content_type == "Markdown":
         doc.message_md = content
     else:
         doc.message = content
-    doc.insert(ignore_permissions=True)
+
+    if doc.is_new():
+        doc.insert(ignore_permissions=True)
+    else:
+        doc.save(ignore_permissions=True)
     return {"name": doc.name}
+
+
+@frappe.whitelist()
+def get_campaign(newsletter):
+    """Full editable content for reopening a saved draft."""
+    _check_sender_access()
+    doc = frappe.get_doc("Newsletter", newsletter)
+    groups = doc.get_email_groups()
+    return {
+        "name": doc.name,
+        "subject": doc.subject,
+        "content_type": doc.content_type,
+        "content": doc.get_message(),
+        "email_group": groups[0] if groups else None,
+        "email_sent": doc.email_sent,
+    }
 
 
 @frappe.whitelist()

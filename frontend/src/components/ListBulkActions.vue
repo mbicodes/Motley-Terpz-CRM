@@ -39,6 +39,7 @@ import { useTelemetry } from 'frappe-ui/frappe'
 import { call, toast } from 'frappe-ui'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { queueCampaignAudience } from '@/composables/campaignPrefill'
 
 const props = defineProps({
   doctype: { type: String, default: '' },
@@ -159,6 +160,12 @@ function clearAssignments(selections, unselectAll) {
   })
 }
 
+function addToEmailCampaign(selections) {
+  queueCampaignAudience(props.doctype, Array.from(selections))
+  capture('bulk_add_to_email_campaign')
+  router.push({ name: 'Campaigns' })
+}
+
 const customBulkActions = ref([])
 const customListActions = ref([])
 
@@ -194,6 +201,13 @@ function bulkActions(selections, unselectAll) {
     actions.push({
       label: __('Convert to Deal'),
       onClick: () => convertToDeal(selections, unselectAll),
+    })
+  }
+
+  if (['CRM Lead', 'CRM Deal', 'Contact'].includes(props.doctype)) {
+    actions.push({
+      label: __('Add to Email Campaign'),
+      onClick: () => addToEmailCampaign(selections),
     })
   }
 
