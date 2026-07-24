@@ -175,7 +175,11 @@ def create_campaign(subject, content, content_type, email_group, newsletter=None
 
     doc.subject = subject
     doc.content_type = content_type
-    doc.email_group = [{"email_group": email_group}]
+    # Use set()/append() so the child rows become real child documents
+    # (assigning a list of plain dicts skips that conversion and blows up
+    # in _set_defaults with "'dict' object has no attribute 'is_new'").
+    doc.set("email_group", [])
+    doc.append("email_group", {"email_group": email_group})
     if content_type == "HTML":
         doc.message_html = content
     elif content_type == "Markdown":
