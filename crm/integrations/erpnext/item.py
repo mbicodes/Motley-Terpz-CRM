@@ -49,6 +49,10 @@ def _catalogue_data(doc) -> dict:
 	rate = get_item_price_rate(doc.name, doc.get("stock_uom"))
 	if rate is not None:
 		data["standard_rate"] = rate
+	# CRM Product.standard_rate is NOT NULL; a brand new Item with no price
+	# set and no Item Price row yet would otherwise send NULL and fail the sync.
+	if data.get("standard_rate") is None:
+		data["standard_rate"] = 0
 	return data
 
 
