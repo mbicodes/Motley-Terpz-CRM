@@ -25,7 +25,7 @@ SUPER_ADMIN_ROLE = "Super Admin"
 # deals (as if they were one rep), without seeing anyone else's. Add more groups
 # or members here as teams form.
 SHARED_VISIBILITY_GROUPS = [
-    {"douglas@motleyterpz.com", "dominic@motleyterpz.com"},
+    {"douglas@motleyterpz.com", "alex@motleyterpz.com"},
 ]
 
 # Roles treated as "Operations / Fulfillment" for AR/pricing redaction.
