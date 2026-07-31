@@ -12,7 +12,7 @@ the "Super Admin" role — see crm.motley_terpz.access.sees_all_data.
 """
 import frappe
 
-from crm.motley_terpz.access import sees_all_data
+from crm.motley_terpz.access import sees_all_data, visible_owners
 
 
 def get_lead_permission_query_conditions(user):
@@ -26,11 +26,12 @@ def get_lead_permission_query_conditions(user):
 
     conditions = []
 
-    # 1. Org hierarchy condition (original CRM logic)
+    # 1. Org hierarchy condition (original CRM logic), widened across the user's
+    #    shared visibility group so group members see each other's leads.
     from crm.permissions.org_hierarchy import get_lead_permission_query_conditions as _org
-    org_cond = _org(user)
-    if org_cond:
-        conditions.append(f"({org_cond})")
+    org_parts = [p for p in (_org(o) for o in visible_owners(user)) if p]
+    if org_parts:
+        conditions.append("(" + " OR ".join(f"({p})" for p in org_parts) + ")")
 
     # 2. Tolling access control — hide Tolling leads from unauthorised users
     if "CRM Tolling Access" not in frappe.get_roles(user):
@@ -40,10 +41,11 @@ def get_lead_permission_query_conditions(user):
             "OR `tabCRM Lead`.`custom_pipeline` = '')"
         )
 
-    # 3. Ownership filter — show only this user's leads + unassigned leads
-    escaped = frappe.db.escape(user)
+    # 3. Ownership filter — show leads owned by anyone in the user's shared
+    #    visibility group (usually just the user) + unassigned leads.
+    owner_in = ", ".join(frappe.db.escape(o) for o in visible_owners(user))
     conditions.append(
-        f"(`tabCRM Lead`.`lead_owner` = {escaped} "
+        f"(`tabCRM Lead`.`lead_owner` IN ({owner_in}) "
         f"OR `tabCRM Lead`.`lead_owner` IS NULL "
         f"OR `tabCRM Lead`.`lead_owner` = '')"
     )
@@ -64,12 +66,12 @@ def get_deal_permission_query_conditions(user):
     if sees_all_data(user):
         return ""
 
-    escaped = frappe.db.escape(user)
-    like = frappe.db.escape(f"%{user}%")
-    return (
-        f"(`tabCRM Deal`.`deal_owner` = {escaped} "
-        f"OR `tabCRM Deal`.`_assign` LIKE {like})"
+    owners = visible_owners(user)
+    owner_in = ", ".join(frappe.db.escape(o) for o in owners)
+    assign_likes = " OR ".join(
+        f"`tabCRM Deal`.`_assign` LIKE {frappe.db.escape('%' + o + '%')}" for o in owners
     )
+    return f"(`tabCRM Deal`.`deal_owner` IN ({owner_in}) OR {assign_likes})"
 
 
 def has_deal_permission(doc, ptype, user):
@@ -83,7 +85,9 @@ def has_deal_permission(doc, ptype, user):
     if ptype == "create":
         return True
 
-    if doc.get("deal_owner") == user:
+    owners = visible_owners(user)
+    if doc.get("deal_owner") in owners:
         return True
 
-    return user in (doc.get("_assign") or "")
+    assign = doc.get("_assign") or ""
+    return any(o in assign for o in owners)

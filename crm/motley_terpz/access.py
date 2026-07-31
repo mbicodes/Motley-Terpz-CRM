@@ -21,6 +21,13 @@ import frappe
 # Role that grants full cross-rep visibility (in addition to Administrator).
 SUPER_ADMIN_ROLE = "Super Admin"
 
+# Shared visibility groups — every user in a group sees each other's leads and
+# deals (as if they were one rep), without seeing anyone else's. Add more groups
+# or members here as teams form.
+SHARED_VISIBILITY_GROUPS = [
+    {"douglas@motleyterpz.com", "dominic@motleyterpz.com"},
+]
+
 # Roles treated as "Operations / Fulfillment" for AR/pricing redaction.
 OPERATIONS_ROLES = {"Stock Manager"}
 
@@ -45,6 +52,18 @@ def sees_all_data(user=None):
     if user == "Administrator":
         return True
     return SUPER_ADMIN_ROLE in frappe.get_roles(user)
+
+
+def visible_owners(user=None):
+    """The set of user IDs whose leads/deals `user` is allowed to see — their
+    shared visibility group. Defaults to just the user themselves."""
+    if not user:
+        user = frappe.session.user
+    owners = {user}
+    for group in SHARED_VISIBILITY_GROUPS:
+        if user in group:
+            owners |= group
+    return owners
 
 
 def sees_all_financials(user=None):
