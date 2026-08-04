@@ -300,7 +300,6 @@ const salesIntelligenceLinks = [
   { label: '☀️ My Day',           to: { name: 'MyDay'               } },
   { label: '📣 Campaigns',        to: { name: 'Campaigns'           } },
   { label: '🏆 Rep Leaderboard',  to: { name: 'RepLeaderboard'      } },
-  { label: '🎯 Goal vs Actual',   to: { name: 'GoalVsActual'        } },
   { label: '🚚 Upcoming Deliveries', to: { name: 'UpcomingDeliveries' } },
   { label: '📉 Purchase Insights', to: { name: 'PurchaseInsights'    } },
   { label: '📊 Command Center',   to: { name: 'SalesCommandCenter'  } },

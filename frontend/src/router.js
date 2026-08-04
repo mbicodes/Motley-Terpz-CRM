@@ -114,11 +114,6 @@ const routes = [
     component: () => import('@/pages/RepLeaderboard.vue'),
   },
   {
-    path: '/goal-vs-actual',
-    name: 'GoalVsActual',
-    component: () => import('@/pages/GoalVsActual.vue'),
-  },
-  {
     path: '/upcoming-deliveries',
     name: 'UpcomingDeliveries',
     component: () => import('@/pages/UpcomingDeliveries.vue'),
