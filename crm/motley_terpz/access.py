@@ -26,6 +26,8 @@ SUPER_ADMIN_ROLE = "Super Admin"
 # or members here as teams form.
 SHARED_VISIBILITY_GROUPS = [
     {"douglas@motleyterpz.com", "alex@motleyterpz.com"},
+    # Nikki + Elizabeth "Lizzy" Brooks (lizzy@ is Elizabeth's account).
+    {"nikki@motleyterpz.com", "lizzy@motleyterpz.com"},
 ]
 
 # Roles treated as "Operations / Fulfillment" for AR/pricing redaction.
