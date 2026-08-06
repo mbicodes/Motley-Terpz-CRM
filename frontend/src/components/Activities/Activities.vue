@@ -581,7 +581,7 @@ import {
   onMounted,
   onBeforeUnmount,
 } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const { $socket } = globalStore()
 const { getUser } = usersStore()
@@ -596,6 +596,7 @@ const props = defineProps({
 const emit = defineEmits(['beforeSave', 'afterSave'])
 
 const route = useRoute()
+const router = useRouter()
 
 const reload = defineModel('reload', { type: Boolean, default: false })
 const tabIndex = defineModel('tabIndex', { type: Number, default: 0 })
@@ -682,8 +683,35 @@ onMounted(() => {
     if (!tabNames?.includes(hash)) {
       scroll(hash)
     }
+    openTaskFromQuery()
   })
 })
+
+/**
+ * Deep link: /leads/<id>?openTask=<CRM Task>#tasks opens that task's modal.
+ *
+ * Used by the My Day dashboard so a rep clicking an overdue task lands on the
+ * account AND the task, rather than on the account's task list to hunt for it.
+ * The query param is cleared afterwards so a refresh or a back-navigation does
+ * not reopen the modal.
+ */
+function openTaskFromQuery() {
+  const taskName = route.query.openTask
+  if (!taskName || !modalRef.value) return
+
+  modalRef.value.showTask({ name: taskName })
+
+  const query = { ...route.query }
+  delete query.openTask
+  router.replace({ path: route.path, query, hash: route.hash })
+}
+
+watch(
+  () => route.query.openTask,
+  (value) => {
+    if (value) nextTick(openTaskFromQuery)
+  },
+)
 
 function sendTemplate(template) {
   showWhatsappTemplates.value = false

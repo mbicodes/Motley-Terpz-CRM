@@ -37,12 +37,19 @@
             v-for="t in d.tasks"
             :key="t.name"
             class="md-task"
-            :class="{ overdue: t.is_overdue }"
-            @click="go(t.route)"
+            :class="{ overdue: t.is_overdue, linkable: t.route }"
+            :title="t.route ? 'Open ' + (t.reference_title || 'account') + ' — Ctrl/Cmd+click for a new tab' : ''"
+            @click="go(t.route, $event)"
           >
             <div class="md-task-main">
               <span class="md-task-title">{{ t.title }}</span>
-              <span v-if="t.reference_title" class="md-task-ref">{{ t.reference_title }}</span>
+              <a
+                v-if="t.reference_title"
+                class="md-task-ref"
+                :class="{ link: t.route }"
+                :href="t.route ? href(t.route) : null"
+                @click.stop="go(t.route, $event)"
+              >{{ t.reference_title }}</a>
             </div>
             <div class="md-task-side">
               <span v-if="t.priority" class="md-pill" :class="'p-' + t.priority.toLowerCase()">{{ t.priority }}</span>
@@ -55,21 +62,37 @@
           <div class="md-card">
             <div class="md-card-head">This Week's Meetings</div>
             <div v-if="!d.meetings.length" class="md-empty">Nothing scheduled.</div>
-            <div v-for="m in d.meetings" :key="m.name" class="md-meeting" @click="go(m.route)">
+            <div
+              v-for="m in d.meetings"
+              :key="m.name"
+              class="md-meeting"
+              :class="{ linkable: m.route }"
+              @click="go(m.route, $event)"
+            >
               <span class="md-meeting-title">{{ m.subject }}</span>
               <span class="md-meeting-time">{{ fmtDateTime(m.starts_on) }}</span>
-              <span v-if="m.reference_title" class="md-task-ref">{{ m.reference_title }}</span>
+              <span v-if="m.reference_title" class="md-task-ref" :class="{ link: m.route }">
+                {{ m.reference_title }}
+              </span>
             </div>
           </div>
 
           <div class="md-card">
             <div class="md-card-head">Recent Moves</div>
             <div v-if="!d.recent.length" class="md-empty">No recent activity.</div>
-            <div v-for="(r, i) in d.recent" :key="i" class="md-recent" @click="go(r.route)">
+            <div
+              v-for="(r, i) in d.recent"
+              :key="i"
+              class="md-recent"
+              :class="{ linkable: r.route }"
+              @click="go(r.route, $event)"
+            >
               <span class="md-recent-icon">{{ recentIcon(r.type) }}</span>
               <div class="md-recent-body">
                 <span class="md-recent-label">{{ r.label || r.type }}</span>
-                <span v-if="r.reference_title" class="md-task-ref">{{ r.reference_title }}</span>
+                <span v-if="r.reference_title" class="md-task-ref" :class="{ link: r.route }">
+                  {{ r.reference_title }}
+                </span>
               </div>
               <span class="md-recent-time">{{ timeAgo(r.timestamp) }}</span>
             </div>
@@ -110,8 +133,23 @@ function timeAgo(v) {
 function recentIcon(type) {
   return { note: '📝', task: '✅', call: '📞' }[type] || '•'
 }
-function go(route) {
-  if (route) router.push(route)
+// The router is created with createWebHistory('/crm'), so in-app paths do not
+// carry the '/crm' prefix. Real hrefs do, which is what makes middle-click and
+// Ctrl/Cmd+click open the right page in a new tab.
+function href(route) {
+  return route ? '/crm' + route : null
+}
+
+function go(route, event) {
+  if (!route) return
+  // Let the browser handle new-tab intents on the real anchor.
+  if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1)) {
+    window.open(href(route), '_blank')
+    event.preventDefault()
+    return
+  }
+  event?.preventDefault()
+  router.push(route)
 }
 
 async function loadReps() {
@@ -168,7 +206,13 @@ onMounted(async () => {
 .md-task.overdue{background:#fef2f2;}
 .md-task-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .md-task-title{font-size:13px;font-weight:600;color:#1e293b;}
-.md-task-ref{font-size:11px;color:#94a3b8;}
+.md-task-ref{font-size:11px;color:#94a3b8;text-decoration:none;}
+/* Visible link affordance: the account name is the thing reps aim at. */
+.md-task-ref.link{color:#4f46e5;font-weight:600;}
+.md-task-ref.link:hover{text-decoration:underline;}
+.linkable{cursor:pointer;}
+.linkable:not(.md-task){position:relative;}
+.linkable:hover .md-task-ref.link{text-decoration:underline;}
 .md-task-side{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .md-pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;}
 .md-pill.p-high{background:#fee2e2;color:#991b1b;}

@@ -10,6 +10,8 @@ Lead/Deal I've touched. Managers (sees_all_data) get a rep switcher;
 everyone else always sees their own.
 """
 
+from urllib.parse import quote
+
 import frappe
 from frappe.utils import add_days, get_url_to_form, getdate, nowdate
 
@@ -32,15 +34,39 @@ def _doc_title(doctype, name, cache):
     return title
 
 
-def _record_route(doctype, name, tab=None):
+def _record_route(doctype, name, tab=None, open_task=None):
+    """In-app route for a record, for vue-router push().
+
+    The router is created with createWebHistory('/crm'), so '/crm' is the base
+    and must NOT appear in the path we hand to router.push() - pushing
+    '/crm/leads/X' resolves to the URL '/crm/crm/leads/X' and lands on the
+    invalid-page route. That is why the My Day links did nothing.
+
+    `tab` becomes the hash, which useActiveTabManager matches case-insensitively
+    against the tab names ('Tasks' -> '#tasks').
+
+    `open_task` adds ?openTask=<CRM Task name>; Activities.vue picks that up and
+    opens the task modal, so a click lands on the account AND the task.
+    """
+    # An activity can carry a reference_doctype with no reference_docname
+    # (a note logged against nothing). Without this guard we emit "/leads/None",
+    # which renders as a clickable row that lands on an error page.
+    if not doctype or not name:
+        return None
+
+    slug = quote(str(name), safe="")
     if doctype == "CRM Lead":
-        path = f"/crm/leads/{name}"
+        path = f"/leads/{slug}"
     elif doctype == "CRM Deal":
-        path = f"/crm/deals/{name}"
+        path = f"/deals/{slug}"
     elif doctype == "Contact":
-        path = f"/contacts/{name}"
+        # Contact names are person names, so they routinely contain spaces.
+        path = f"/contacts/{slug}"
     else:
         return None
+
+    if open_task:
+        path = f"{path}?openTask={quote(str(open_task), safe='')}"
     return f"{path}#{tab}" if tab else path
 
 
@@ -94,7 +120,10 @@ def get_my_day(user=None):
             _doc_title(t.reference_doctype, t.reference_docname, title_cache)
             if t.reference_doctype and t.reference_docname else None
         )
-        t["route"] = _record_route(t.reference_doctype, t.reference_docname, "tasks")
+        # Deep-link to the account's Tasks tab with this task open.
+        t["route"] = _record_route(
+            t.reference_doctype, t.reference_docname, tab="tasks", open_task=t.name
+        )
 
     overdue_count = sum(1 for t in tasks if t["is_overdue"])
     due_today_count = sum(
@@ -118,7 +147,7 @@ def get_my_day(user=None):
             _doc_title(m.reference_doctype, m.reference_docname, title_cache)
             if m.reference_doctype and m.reference_docname else None
         )
-        m["route"] = _record_route(m.reference_doctype, m.reference_docname)
+        m["route"] = _record_route(m.reference_doctype, m.reference_docname, tab="events")
 
     # ── Recent moves: notes, tasks, calls I've logged, most recent first ──
     recent = []
@@ -141,6 +170,7 @@ def get_my_day(user=None):
         recent.append({
             "type": "task", "timestamp": task.creation,
             "label": task.title, "status": task.status,
+            "task_name": task.name,
             "reference_doctype": task.reference_doctype,
             "reference_docname": task.reference_docname,
         })
@@ -161,7 +191,14 @@ def get_my_day(user=None):
             _doc_title(r["reference_doctype"], r["reference_docname"], title_cache)
             if r.get("reference_doctype") and r.get("reference_docname") else None
         )
-        r["route"] = _record_route(r.get("reference_doctype"), r.get("reference_docname"))
+        # Land on the tab the activity actually lives in, so a note opens the
+        # Notes tab rather than dumping the user on Activity to hunt for it.
+        r["route"] = _record_route(
+            r.get("reference_doctype"),
+            r.get("reference_docname"),
+            tab={"note": "notes", "task": "tasks", "call": "calls"}.get(r["type"]),
+            open_task=r.get("task_name") if r["type"] == "task" else None,
+        )
 
     recent.sort(key=lambda r: r["timestamp"], reverse=True)
     recent = recent[:RECENT_LIMIT]
