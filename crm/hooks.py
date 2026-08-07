@@ -149,7 +149,7 @@ permission_query_conditions = {
 }
 
 has_permission = {
-	"CRM Lead": "crm.permissions.org_hierarchy.has_lead_permission",
+	"CRM Lead": "crm.motley_terpz.permissions.has_lead_permission",
 	"CRM Deal": "crm.motley_terpz.permissions.has_deal_permission",
 }
 

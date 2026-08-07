@@ -53,6 +53,33 @@ def get_lead_permission_query_conditions(user):
     return " AND ".join(conditions) if conditions else ""
 
 
+def has_lead_permission(doc, ptype, user):
+    """Document-level counterpart to get_lead_permission_query_conditions.
+    Without this, list views correctly widen visibility across a shared group,
+    but opening an individual lead still fell through to the old org-hierarchy
+    check (crm.permissions.org_hierarchy.has_lead_permission), which has no
+    concept of shared visibility groups and rejected it."""
+    if not user:
+        user = frappe.session.user
+
+    if sees_all_data(user):
+        return True
+
+    if ptype == "create":
+        return True
+
+    if doc.get("custom_pipeline") == "Tolling" and "CRM Tolling Access" not in frappe.get_roles(user):
+        return False
+
+    owners = visible_owners(user)
+    lead_owner = doc.get("lead_owner")
+    if not lead_owner or lead_owner in owners:
+        return True
+
+    assign = doc.get("_assign") or ""
+    return any(o in assign for o in owners)
+
+
 # ── CRM Deal ownership scoping ──────────────────────────────────────────────
 # Mirrors the lead rules: only the Administrator account and Super Admin role
 # see every deal. Every other user (System/Sales Manager roles included) sees
