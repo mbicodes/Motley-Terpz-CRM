@@ -109,8 +109,23 @@ def create_motley_custom_fields():
             {"fieldname": "custom_demand_flower",       "fieldtype": "Float",         "label": "Flower / Pre-rolls",    "insert_after": "custom_demand_trim"},
             {"fieldname": "custom_demand_other",        "fieldtype": "Long Text",     "label": "Other Demand Notes",    "insert_after": "custom_demand_flower"},
 
-            # ── Section E: ERPNext — Live Data (read-only) ────────────────────
-            {"fieldname": "custom_erpnext_section",     "fieldtype": "Section Break", "label": "ERPNext — Live Data",   "collapsible": 1, "insert_after": "custom_demand_other"},
+            # ── Section E: Order Cadence & Volume ────────────────────────────
+            # How often the account buys and how much, with the unit the rep
+            # entered it in (quantities are NOT auto-converted — the unit is
+            # stored alongside the number so nothing is silently reinterpreted).
+            {"fieldname": "custom_order_cadence_section", "fieldtype": "Section Break", "label": "Order Cadence & Volume", "collapsible": 1, "insert_after": "custom_demand_other"},
+            {"fieldname": "custom_order_frequency",     "fieldtype": "Select",        "label": "Order Frequency",
+             "options": "\nWeekly\nMonthly",
+             "in_standard_filter": 1, "insert_after": "custom_order_cadence_section"},
+            {"fieldname": "custom_order_quantity",      "fieldtype": "Float",         "label": "Quantity",
+             "non_negative": 1, "precision": "2", "insert_after": "custom_order_frequency"},
+            {"fieldname": "custom_order_quantity_uom",  "fieldtype": "Select",        "label": "Quantity Unit",
+             "options": "lbs\nkgs", "default": "lbs",
+             "description": "Unit the quantity above is expressed in",
+             "insert_after": "custom_order_quantity"},
+
+            # ── Section F: ERPNext — Live Data (read-only) ────────────────────
+            {"fieldname": "custom_erpnext_section",     "fieldtype": "Section Break", "label": "ERPNext — Live Data",   "collapsible": 1, "insert_after": "custom_order_quantity_uom"},
             {"fieldname": "custom_erp_customer",        "fieldtype": "Link",          "label": "ERPNext Customer",
              "options": "Customer", "insert_after": "custom_erpnext_section"},
             {"fieldname": "custom_ar_balance",          "fieldtype": "Currency",      "label": "AR Balance",            "read_only": 1, "insert_after": "custom_erp_customer"},

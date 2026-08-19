@@ -48,8 +48,8 @@
   "docstatus": 0,
   "doctype": "CRM Fields Layout",
   "dt": "CRM Lead",
-  "layout": "[{\"name\":\"first_tab\",\"sections\":[{\"label\":\"Details\",\"name\":\"details_section\",\"opened\":true,\"columns\":[{\"name\":\"column_ZgLG\",\"fields\":[\"organization\",\"industry\",\"lead_owner\",\"custom_pipeline\"]},{\"name\":\"column_TbYq\",\"fields\":[\"website\",\"job_title\"]},{\"name\":\"column_OKSX\",\"fields\":[\"territory\",\"source\"]}]},{\"label\":\"Person\",\"name\":\"person_section\",\"opened\":true,\"columns\":[{\"name\":\"column_6c5g\",\"fields\":[\"salutation\",\"email\"]},{\"name\":\"column_1n7Q\",\"fields\":[\"first_name\",\"mobile_no\"]},{\"name\":\"column_cT6C\",\"fields\":[\"last_name\",\"custom_account_owner\"]}]}]}]",
-  "modified": "2026-07-09 11:07:27.901589",
+  "layout": "[{\"name\": \"first_tab\", \"sections\": [{\"label\": \"Details\", \"name\": \"details_section\", \"opened\": true, \"columns\": [{\"name\": \"column_ZgLG\", \"fields\": [\"organization\", \"industry\", \"lead_owner\", \"custom_pipeline\"]}, {\"name\": \"column_TbYq\", \"fields\": [\"website\", \"job_title\"]}, {\"name\": \"column_OKSX\", \"fields\": [\"territory\", \"source\"]}]}, {\"label\": \"Person\", \"name\": \"person_section\", \"opened\": true, \"columns\": [{\"name\": \"column_6c5g\", \"fields\": [\"salutation\", \"email\"]}, {\"name\": \"column_1n7Q\", \"fields\": [\"first_name\", \"mobile_no\"]}, {\"name\": \"column_cT6C\", \"fields\": [\"last_name\", \"custom_account_owner\"]}]}, {\"label\": \"Order Cadence\", \"name\": \"order_cadence_section\", \"opened\": true, \"columns\": [{\"name\": \"column_ordFreq\", \"fields\": [\"custom_order_frequency\"]}, {\"name\": \"column_ordQty\", \"fields\": [\"custom_order_quantity\"]}, {\"name\": \"column_ordUom\", \"fields\": [\"custom_order_quantity_uom\"]}]}]}]",
+  "modified": "2026-08-19 05:46:10.192592",
   "name": "CRM Lead-Data Fields",
   "type": "Data Fields"
  },
