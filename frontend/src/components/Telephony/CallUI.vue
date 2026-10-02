@@ -1,6 +1,6 @@
 <template>
-  <TwilioCallUI ref="twilio" />
-  <ExotelCallUI ref="exotel" />
+  <TwilioCallUI v-if="isEnabled('twilio')" ref="twilio" />
+  <ExotelCallUI v-if="isEnabled('exotel')" ref="exotel" />
   <Dialog
     v-model="show"
     :options="{
@@ -45,12 +45,20 @@
   </Dialog>
 </template>
 <script setup>
-import TwilioCallUI from '@/components/Telephony/TwilioCallUI.vue'
-import ExotelCallUI from '@/components/Telephony/ExotelCallUI.vue'
 import { defaultCallingMedium, useTelephony } from '@/composables/telephony'
 import { globalStore } from '@/stores/global'
 import { FormControl, call, toast } from 'frappe-ui'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
+
+// Lazy-loaded: these pull in the full Twilio/Exotel calling SDKs, which most
+// sites never enable. Gated by v-if="isEnabled(...)" below so the SDK is only
+// fetched for sites that actually have that integration turned on.
+const TwilioCallUI = defineAsyncComponent(
+  () => import('@/components/Telephony/TwilioCallUI.vue'),
+)
+const ExotelCallUI = defineAsyncComponent(
+  () => import('@/components/Telephony/ExotelCallUI.vue'),
+)
 
 const { setMakeCall } = globalStore()
 const { isEnabled, isAnyEnabled } = useTelephony()
@@ -115,22 +123,36 @@ async function setDefaultCallingMedium() {
 
 watch(
   isAnyEnabled,
-  () =>
-    nextTick(() => {
-      for (const {
-        key,
-        label,
-        ref: integrationRef,
-      } of enabledIntegrations.value) {
-        integrationRef.value.setup()
-        callMedium.value = label
-      }
+  async () => {
+    // TwilioCallUI/ExotelCallUI are lazy-loaded (see imports above) and only
+    // rendered once their integration is enabled. Preload the chunk here so
+    // it's already resolved by the time nextTick() below lets us reach the
+    // ref below — otherwise the ref could still be null on first activation
+    // while the dynamic import is in flight.
+    await Promise.all(
+      enabledIntegrations.value.map(({ key }) =>
+        key === 'twilio'
+          ? import('@/components/Telephony/TwilioCallUI.vue')
+          : import('@/components/Telephony/ExotelCallUI.vue'),
+      ),
+    )
 
-      if (isAnyEnabled.value) {
-        callMedium.value = enabledIntegrations.value[0]?.label ?? 'Twilio'
-        setMakeCall(makeCall)
-      }
-    }),
+    await nextTick()
+
+    for (const {
+      key,
+      label,
+      ref: integrationRef,
+    } of enabledIntegrations.value) {
+      integrationRef.value?.setup()
+      callMedium.value = label
+    }
+
+    if (isAnyEnabled.value) {
+      callMedium.value = enabledIntegrations.value[0]?.label ?? 'Twilio'
+      setMakeCall(makeCall)
+    }
+  },
   { immediate: true },
 )
 </script>

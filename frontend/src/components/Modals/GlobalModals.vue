@@ -16,14 +16,12 @@
     v-model="showChangePasswordModal"
   />
   <AboutModal v-model="showAboutModal" />
-  <FieldLayoutDialogContainer />
+  <FieldLayoutDialogContainer v-if="fieldLayoutDialogs.length" />
 </template>
 <script setup>
-import FieldLayoutDialogContainer from '@/components/Modals/FieldLayoutDialogContainer.vue'
-import ChangePasswordModal from '@/components/Modals/ChangePasswordModal.vue'
-import CreateDocumentModal from '@/components/Modals/CreateDocumentModal.vue'
-import QuickEntryModal from '@/components/Modals/QuickEntryModal.vue'
+import { defineAsyncComponent } from 'vue'
 import AboutModal from '@/components/Modals/AboutModal.vue'
+import { fieldLayoutDialogs } from '@/utils/renderFieldLayoutDialog'
 import {
   showCreateDocumentModal,
   createDocumentDoctype,
@@ -36,4 +34,20 @@ import {
   showAboutModal,
   showChangePasswordModal,
 } from '@/composables/modals'
+
+// Lazy-loaded: these (and the FieldLayout system they pull in) only need to
+// download once the user actually opens one, instead of blocking every
+// session's initial bundle.
+const FieldLayoutDialogContainer = defineAsyncComponent(
+  () => import('@/components/Modals/FieldLayoutDialogContainer.vue'),
+)
+const ChangePasswordModal = defineAsyncComponent(
+  () => import('@/components/Modals/ChangePasswordModal.vue'),
+)
+const CreateDocumentModal = defineAsyncComponent(
+  () => import('@/components/Modals/CreateDocumentModal.vue'),
+)
+const QuickEntryModal = defineAsyncComponent(
+  () => import('@/components/Modals/QuickEntryModal.vue'),
+)
 </script>
