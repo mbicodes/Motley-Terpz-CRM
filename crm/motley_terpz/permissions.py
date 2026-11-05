@@ -12,7 +12,11 @@ the "Super Admin" role — see crm.motley_terpz.access.sees_all_data.
 """
 import frappe
 
-from crm.motley_terpz.access import sees_all_data, visible_owners
+from crm.motley_terpz.access import (
+    ownership_scoping_enabled,
+    sees_all_data,
+    visible_owners,
+)
 
 
 def get_lead_permission_query_conditions(user):
@@ -25,13 +29,15 @@ def get_lead_permission_query_conditions(user):
         return ""
 
     conditions = []
+    scoped = ownership_scoping_enabled()
 
     # 1. Org hierarchy condition (original CRM logic), widened across the user's
     #    shared visibility group so group members see each other's leads.
-    from crm.permissions.org_hierarchy import get_lead_permission_query_conditions as _org
-    org_parts = [p for p in (_org(o) for o in visible_owners(user)) if p]
-    if org_parts:
-        conditions.append("(" + " OR ".join(f"({p})" for p in org_parts) + ")")
+    if scoped:
+        from crm.permissions.org_hierarchy import get_lead_permission_query_conditions as _org
+        org_parts = [p for p in (_org(o) for o in visible_owners(user)) if p]
+        if org_parts:
+            conditions.append("(" + " OR ".join(f"({p})" for p in org_parts) + ")")
 
     # 2. Tolling access control — hide Tolling leads from unauthorised users
     if "CRM Tolling Access" not in frappe.get_roles(user):
@@ -43,12 +49,13 @@ def get_lead_permission_query_conditions(user):
 
     # 3. Ownership filter — show leads owned by anyone in the user's shared
     #    visibility group (usually just the user) + unassigned leads.
-    owner_in = ", ".join(frappe.db.escape(o) for o in visible_owners(user))
-    conditions.append(
-        f"(`tabCRM Lead`.`lead_owner` IN ({owner_in}) "
-        f"OR `tabCRM Lead`.`lead_owner` IS NULL "
-        f"OR `tabCRM Lead`.`lead_owner` = '')"
-    )
+    if scoped:
+        owner_in = ", ".join(frappe.db.escape(o) for o in visible_owners(user))
+        conditions.append(
+            f"(`tabCRM Lead`.`lead_owner` IN ({owner_in}) "
+            f"OR `tabCRM Lead`.`lead_owner` IS NULL "
+            f"OR `tabCRM Lead`.`lead_owner` = '')"
+        )
 
     return " AND ".join(conditions) if conditions else ""
 
@@ -71,6 +78,9 @@ def has_lead_permission(doc, ptype, user):
     if doc.get("custom_pipeline") == "Tolling" and "CRM Tolling Access" not in frappe.get_roles(user):
         return False
 
+    if not ownership_scoping_enabled():
+        return True
+
     owners = visible_owners(user)
     lead_owner = doc.get("lead_owner")
     if not lead_owner or lead_owner in owners:
@@ -90,7 +100,7 @@ def get_deal_permission_query_conditions(user):
     if not user:
         user = frappe.session.user
 
-    if sees_all_data(user):
+    if sees_all_data(user) or not ownership_scoping_enabled():
         return ""
 
     owners = visible_owners(user)
@@ -105,7 +115,7 @@ def has_deal_permission(doc, ptype, user):
     if not user:
         user = frappe.session.user
 
-    if sees_all_data(user):
+    if sees_all_data(user) or not ownership_scoping_enabled():
         return True
 
     # Allow creating new deals; ownership is enforced once saved.

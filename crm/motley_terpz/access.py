@@ -45,6 +45,20 @@ AR_PRIVILEGED_ROLES = {
 FINANCE_ROLES = {"Finance Manager", "Accounts Manager"}
 
 
+# Ownership scoping is OFF: every user sees every rep's customers, leads and
+# deals. The scoping logic below is left intact -- flip this back to True and
+# per-rep visibility returns exactly as it was.
+#
+# This governs ownership only. The Tolling pipeline stays gated on the
+# "CRM Tolling Access" role, which is a different control and is unaffected.
+RESTRICT_TO_OWN_RECORDS = False
+
+
+def ownership_scoping_enabled():
+    """Whether a user is limited to the records their visibility group owns."""
+    return RESTRICT_TO_OWN_RECORDS
+
+
 def sees_all_data(user=None):
     """True only for the Administrator account or holders of the Super Admin
     role. These are the only identities allowed to see every rep's data
